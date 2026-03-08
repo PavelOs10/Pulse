@@ -7,12 +7,13 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-super-secret-change-me-in-production}
+      # ВАЖНО: задайте фиксированный секрет! Иначе после пересборки токены станут невалидны.
+      - JWT_SECRET=${JWT_SECRET:-pulse-production-secret-change-me-12345}
+      - DATA_DIR=/app/data
     volumes:
-      - pulse_data:/app/server/uploads
-      - pulse_db:/app/server
+      # Единый том для БД + загрузок. Данные сохранятся при пересборке контейнера.
+      - pulse_data:/app/data
     restart: unless-stopped
 
 volumes:
   pulse_data:
-  pulse_db:

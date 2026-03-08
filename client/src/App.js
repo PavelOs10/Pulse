@@ -34,7 +34,10 @@ const globalStyles = `
     --shadow: 0 4px 24px rgba(0,0,0,0.4);
     --font: 'Manrope', -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
   }
 
   html { height: 100%; overflow: hidden; }
@@ -53,37 +56,40 @@ const globalStyles = `
     left: 0;
   }
 
-  #root { height: 100dvh; height: 100vh; }
+  #root { height: 100dvh; height: 100vh; display: flex; flex-direction: column; }
 
   input, textarea, button { font-family: var(--font); }
-  
-  /* Prevent iOS zoom on input focus */
   input, textarea, select { font-size: 16px !important; }
-  
-  /* Touch improvements */
   button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  a { -webkit-tap-highlight-color: transparent; }
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes slideRight { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-  @keyframes ripple { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
   @keyframes recording { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 68, 102, 0.4); } 50% { box-shadow: 0 0 0 12px rgba(255, 68, 102, 0); } }
-  @keyframes circleRecord { 0% { border-color: var(--accent); } 50% { border-color: var(--danger); } 100% { border-color: var(--accent); } }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* Mobile-specific overrides */
+  @media (max-width: 768px) {
+    .sidebar-mobile-hidden { display: none !important; }
+    .chat-mobile-hidden { display: none !important; }
+  }
+  @media (min-width: 769px) {
+    .desktop-back-btn { display: none !important; }
+  }
 `;
 
 // ─── Emoji Data ───────────────────────────────────────────────────
 const EMOJI_CATEGORIES = {
-  'Смайлики': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','😮‍💨','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
-  'Жесты': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪'],
-  'Сердечки': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟'],
-  'Природа': ['🌸','🌺','🌻','🌹','🌷','🌼','💐','🍀','🌿','🌱','🌳','🌴','🍃','🍂','🍁','🌾','🌵','🌊','🌈','🌙','⭐','🌟','✨','☀️','🌤️','⛅','🌥️','🌦️','🌧️','🌨️','❄️','☃️','⛄','🔥','💧','🌬️'],
-  'Еда': ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥝','🍅','🥑','🍆','🌶️','🫑','🥒','🥦','🧄','🧅','🥕','🌽','🍕','🍔','🍟','🌭','🍿','🧂','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌮','🌯','🥗','🍱','🍣','🍜','🍝','🍲','🍛','🍩','🍪','🎂','🍰','🧁','🍫','🍬','🍭','🍮','☕','🍵','🥤','🍺','🍻','🥂','🍷','🍸','🍹'],
+  'Смайлы': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐'],
+  'Жесты': ['👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','💪'],
+  'Сердца': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❣️','💕','💞','💓','💗','💖','💘','💝'],
+  'Природа': ['🌸','🌺','🌻','🌹','🌷','🌼','💐','🍀','🌿','🌱','🌳','🌴','🍃','🍂','🍁','🌊','🌈','🌙','⭐','✨','☀️','🔥','💧'],
+  'Еда': ['🍎','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🍑','🍍','🥝','🍕','🍔','🍟','🌭','🍿','🍳','🍩','🍪','🎂','🍰','🧁','🍫','🍬','☕','🍵','🥤','🍺','🍷'],
 };
 
 // ─── API Helpers ──────────────────────────────────────────────────
@@ -109,6 +115,26 @@ async function uploadFile(type, file) {
     body: form
   });
   return res.json();
+}
+
+// ─── Media Permission Helper ─────────────────────────────────────
+async function requestMediaPermission(constraints) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    return { stream, error: null };
+  } catch (err) {
+    let errorMsg = 'Не удалось получить доступ к медиа.';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      errorMsg = 'Доступ к микрофону/камере запрещён. Разрешите доступ в настройках браузера.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      errorMsg = 'Микрофон или камера не найдены на этом устройстве.';
+    } else if (err.name === 'NotReadableError') {
+      errorMsg = 'Устройство уже используется другим приложением.';
+    } else if (err.name === 'OverconstrainedError') {
+      errorMsg = 'Запрошенные параметры не поддерживаются устройством.';
+    }
+    return { stream: null, error: errorMsg };
+  }
 }
 
 // ─── Time Formatting ──────────────────────────────────────────────
@@ -174,31 +200,31 @@ function AuthScreen({ onAuth }) {
 
   return (
     <div style={{
-      height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg-primary)',
-      backgroundImage: 'radial-gradient(ellipse at 30% 20%, rgba(0,212,170,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(0,212,170,0.04) 0%, transparent 50%)'
+      height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--bg-primary)', padding: 16,
+      backgroundImage: 'radial-gradient(ellipse at 30% 20%, rgba(0,212,170,0.06) 0%, transparent 50%)'
     }}>
       <div style={{
-        width: '100%', maxWidth: 420, padding: 32,
+        width: '100%', maxWidth: 400, padding: '24px 20px',
         animation: 'slideUp 0.5s ease'
       }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            width: 72, height: 72, margin: '0 auto 16px',
+            width: 64, height: 64, margin: '0 auto 12px',
             borderRadius: '50%', border: '2px solid var(--accent)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--accent-glow)',
             boxShadow: '0 0 40px rgba(0,212,170,0.2)'
           }}>
-            <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)' }} />
+            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)' }} />
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.5px' }}>Pulse</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Приватный мессенджер</p>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px' }}>Pulse</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>Приватный мессенджер</p>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, marginBottom: 28, background: 'var(--bg-secondary)', borderRadius: 12, padding: 3 }}>
+        <div style={{ display: 'flex', marginBottom: 24, background: 'var(--bg-secondary)', borderRadius: 12, padding: 3 }}>
           {['Вход', 'Регистрация'].map((label, i) => (
             <button key={label} onClick={() => { setIsLogin(i === 0); setError(''); }}
               style={{
@@ -212,11 +238,13 @@ function AuthScreen({ onAuth }) {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div onSubmit={handleSubmit}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input placeholder={isLogin ? 'Логин или email' : 'Имя пользователя'}
               value={form.username} onChange={e => setForm({ ...form, username: e.target.value })}
-              style={inputStyle} required />
+              style={inputStyle} required
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(e); }}
+            />
             
             {!isLogin && (
               <>
@@ -231,25 +259,27 @@ function AuthScreen({ onAuth }) {
             
             <input placeholder="Пароль" type="password" value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
-              style={inputStyle} required minLength={6} />
+              style={inputStyle} required minLength={6}
+              onKeyDown={e => { if (e.key === 'Enter') handleSubmit(e); }}
+            />
           </div>
 
           {error && (
             <div style={{
-              marginTop: 12, padding: '10px 14px', borderRadius: 10,
+              marginTop: 10, padding: '10px 14px', borderRadius: 10,
               background: 'rgba(255,68,102,0.1)', color: 'var(--danger)', fontSize: 13
             }}>{error}</div>
           )}
 
-          <button type="submit" disabled={loading} style={{
-            width: '100%', marginTop: 20, padding: '14px 0', border: 'none',
+          <button onClick={handleSubmit} disabled={loading} style={{
+            width: '100%', marginTop: 16, padding: '14px 0', border: 'none',
             borderRadius: 12, background: 'var(--accent)', color: 'var(--bg-primary)',
             fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
             opacity: loading ? 0.6 : 1
           }}>
             {loading ? '...' : isLogin ? 'Войти' : 'Создать аккаунт'}
           </button>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -266,32 +296,33 @@ const inputStyle = {
 // ─── EMOJI PICKER ────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 function EmojiPicker({ onSelect, onClose }) {
-  const [category, setCategory] = useState('Смайлики');
+  const [category, setCategory] = useState('Смайлы');
   const ref = useRef();
 
   useEffect(() => {
     const handleClick = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick, { passive: true });
+    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('touchstart', handleClick); };
   }, [onClose]);
 
   return (
     <div ref={ref} style={{
-      position: 'absolute', bottom: 60, left: 0, right: 0,
-      maxWidth: 320, width: 'calc(100vw - 24px)',
-      maxHeight: 360,
+      position: 'absolute', bottom: 56, left: 4, right: 4,
+      maxWidth: 340, width: '100%',
+      maxHeight: 320,
       background: 'var(--bg-secondary)', border: '1px solid var(--border)',
       borderRadius: 16, boxShadow: 'var(--shadow)', zIndex: 100,
       animation: 'slideUp 0.2s ease', overflow: 'hidden'
     }}>
       <div style={{
-        display: 'flex', gap: 2, padding: '8px 8px 4px', overflowX: 'auto',
-        borderBottom: '1px solid var(--border)'
+        display: 'flex', gap: 2, padding: '6px 6px 4px', overflowX: 'auto',
+        borderBottom: '1px solid var(--border)', WebkitOverflowScrolling: 'touch'
       }}>
         {Object.keys(EMOJI_CATEGORIES).map(cat => (
           <button key={cat} onClick={() => setCategory(cat)}
             style={{
-              padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              padding: '5px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
               fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
               background: cat === category ? 'var(--accent-glow)' : 'transparent',
               color: cat === category ? 'var(--accent)' : 'var(--text-secondary)'
@@ -301,18 +332,16 @@ function EmojiPicker({ onSelect, onClose }) {
         ))}
       </div>
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 2,
-        padding: 8, maxHeight: 280, overflowY: 'auto'
+        display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 1,
+        padding: 6, maxHeight: 240, overflowY: 'auto', WebkitOverflowScrolling: 'touch'
       }}>
         {EMOJI_CATEGORIES[category].map(emoji => (
           <button key={emoji} onClick={() => { onSelect(emoji); onClose(); }}
             style={{
-              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '100%', aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 20,
-              borderRadius: 8, transition: 'background 0.15s'
-            }}
-            onMouseOver={e => e.target.style.background = 'var(--bg-hover)'}
-            onMouseOut={e => e.target.style.background = 'transparent'}>
+              borderRadius: 8, padding: 0
+            }}>
             {emoji}
           </button>
         ))}
@@ -326,6 +355,7 @@ function EmojiPicker({ onSelect, onClose }) {
 // ══════════════════════════════════════════════════════════════════
 function VoiceRecorder({ onSend, onCancel }) {
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState(null);
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
   const timer = useRef(null);
@@ -340,36 +370,30 @@ function VoiceRecorder({ onSend, onCancel }) {
     let cancelled = false;
 
     (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = stream;
-
-        // Detect supported mime type
-        const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-        let mimeType = '';
-        for (const mt of mimeTypes) {
-          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
-        }
-
-        const options = mimeType ? { mimeType } : {};
-        const recorder = new MediaRecorder(stream, options);
-        mediaRecorder.current = recorder;
-        chunks.current = [];
-        
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.current.push(e.data);
-        };
-        
-        recorder.start(200);
-        timer.current = setInterval(() => {
-          durationRef.current += 1;
-          setDuration(d => d + 1);
-        }, 1000);
-      } catch (err) {
-        console.error('Voice recorder error:', err);
-        if (!cancelled) onCancelRef.current();
+      const { stream, error: permError } = await requestMediaPermission({ audio: true });
+      if (cancelled) { if (stream) stream.getTracks().forEach(t => t.stop()); return; }
+      
+      if (permError) {
+        setError(permError);
+        setTimeout(() => onCancelRef.current(), 3000);
+        return;
       }
+
+      streamRef.current = stream;
+      const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+      let mimeType = '';
+      for (const mt of mimeTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+      }
+
+      const options = mimeType ? { mimeType } : {};
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorder.current = recorder;
+      chunks.current = [];
+      
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.current.push(e.data); };
+      recorder.start(200);
+      timer.current = setInterval(() => { durationRef.current += 1; setDuration(d => d + 1); }, 1000);
     })();
 
     return () => {
@@ -378,16 +402,13 @@ function VoiceRecorder({ onSend, onCancel }) {
       if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
         try { mediaRecorder.current.stop(); } catch(e) {}
       }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
-  }, []); // no deps — mount once
+  }, []);
 
   const handleSend = () => {
     clearInterval(timer.current);
     if (!mediaRecorder.current || mediaRecorder.current.state !== 'recording') return;
-    
     mediaRecorder.current.onstop = () => {
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       const mimeType = mediaRecorder.current.mimeType || 'audio/webm';
@@ -406,6 +427,22 @@ function VoiceRecorder({ onSend, onCancel }) {
     onCancelRef.current();
   };
 
+  if (error) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flex: 1,
+        padding: '8px 12px', background: 'rgba(255,68,102,0.08)', borderRadius: 20
+      }}>
+        <span style={{ color: 'var(--danger)', fontSize: 13, flex: 1 }}>{error}</span>
+        <button onClick={handleCancel} style={{
+          padding: '6px 12px', borderRadius: 8, border: 'none',
+          background: 'var(--bg-hover)', color: 'var(--text-primary)',
+          cursor: 'pointer', fontSize: 13
+        }}>OK</button>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, flex: 1,
@@ -415,42 +452,41 @@ function VoiceRecorder({ onSend, onCancel }) {
         width: 36, height: 36, borderRadius: '50%', border: 'none',
         background: 'rgba(255,68,102,0.15)', color: 'var(--danger)',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18, flexShrink: 0
+        fontSize: 16, flexShrink: 0
       }}>✕</button>
       
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
-        padding: '8px 12px', background: 'rgba(255,68,102,0.08)',
-        borderRadius: 20
+        padding: '8px 12px', background: 'rgba(255,68,102,0.08)', borderRadius: 20
       }}>
         <div style={{
-          width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)',
+          width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)',
           animation: 'pulse 1.5s infinite', flexShrink: 0
         }} />
         <span style={{ color: 'var(--danger)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
           {formatDuration(duration)}
         </span>
-        <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Запись...</span>
       </div>
       
       <button onClick={handleSend} style={{
         width: 40, height: 40, borderRadius: '50%', border: 'none',
         background: 'var(--accent)', color: 'var(--bg-primary)',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18, flexShrink: 0
+        fontSize: 16, flexShrink: 0
       }}>▶</button>
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ─── CIRCLE RECORDER (Video Circle) ─────────────────────────────
+// ─── CIRCLE RECORDER ─────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 function CircleRecorder({ onSend, onCancel }) {
   const videoRef = useRef();
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState(null);
   const timer = useRef(null);
   const durationRef = useRef(0);
   const sentRef = useRef(false);
@@ -465,46 +501,41 @@ function CircleRecorder({ onSend, onCancel }) {
     let cancelled = false;
 
     (async () => {
-      try {
-        // Detect supported mime type
-        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
-        let mimeType = '';
-        for (const mt of mimeTypes) {
-          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
-        }
-
-        const s = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: { ideal: 400 }, height: { ideal: 400 } }, 
-          audio: true 
-        });
-        if (cancelled) { s.getTracks().forEach(t => t.stop()); return; }
-        streamRef.current = s;
-        if (videoRef.current) videoRef.current.srcObject = s;
-        
-        const options = mimeType ? { mimeType } : {};
-        const recorder = new MediaRecorder(s, options);
-        mediaRecorder.current = recorder;
-        chunks.current = [];
-        
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.current.push(e.data);
-        };
-        
-        recorder.start(200);
-        timer.current = setInterval(() => {
-          durationRef.current += 1;
-          setDuration(d => {
-            if (d >= MAX_DURATION - 1) {
-              doSend();
-              return d;
-            }
-            return d + 1;
-          });
-        }, 1000);
-      } catch (err) {
-        console.error('Circle recorder error:', err);
-        if (!cancelled) onCancelRef.current();
+      const { stream, error: permError } = await requestMediaPermission({ 
+        video: { facingMode: 'user', width: { ideal: 400 }, height: { ideal: 400 } }, 
+        audio: true 
+      });
+      
+      if (cancelled) { if (stream) stream.getTracks().forEach(t => t.stop()); return; }
+      
+      if (permError) {
+        setError(permError);
+        return;
       }
+
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+
+      const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+      let mimeType = '';
+      for (const mt of mimeTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+      }
+        
+      const options = mimeType ? { mimeType } : {};
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorder.current = recorder;
+      chunks.current = [];
+      
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.current.push(e.data); };
+      recorder.start(200);
+      timer.current = setInterval(() => {
+        durationRef.current += 1;
+        setDuration(d => {
+          if (d >= MAX_DURATION - 1) { doSend(); return d; }
+          return d + 1;
+        });
+      }, 1000);
     })();
 
     return () => {
@@ -515,7 +546,7 @@ function CircleRecorder({ onSend, onCancel }) {
       }
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
-  }, []); // no deps
+  }, []);
 
   const doSend = () => {
     if (sentRef.current) return;
@@ -541,17 +572,39 @@ function CircleRecorder({ onSend, onCancel }) {
     onCancelRef.current();
   };
 
+  if (error) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 20
+      }}>
+        <div style={{
+          background: 'var(--bg-secondary)', borderRadius: 20, padding: '32px 24px',
+          maxWidth: 320, textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📷</div>
+          <p style={{ color: 'var(--text-primary)', fontSize: 15, marginBottom: 8 }}>Нет доступа к камере</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>{error}</p>
+          <button onClick={handleCancel} style={{
+            padding: '12px 32px', borderRadius: 12, border: 'none',
+            background: 'var(--accent)', color: 'var(--bg-primary)',
+            cursor: 'pointer', fontSize: 14, fontWeight: 600
+          }}>Закрыть</button>
+        </div>
+      </div>
+    );
+  }
+
   const progress = (duration / MAX_DURATION) * 100;
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, animation: 'fadeIn 0.3s ease',
-      padding: '20px'
+      zIndex: 1000, animation: 'fadeIn 0.3s ease', padding: 20
     }}>
-      <div style={{ position: 'relative', width: 'min(280px, 70vw)', height: 'min(280px, 70vw)' }}>
-        {/* Progress ring */}
+      <div style={{ position: 'relative', width: 'min(260px, 65vw)', height: 'min(260px, 65vw)' }}>
         <svg viewBox="0 0 280 280" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
           <circle cx="140" cy="140" r="136" fill="none" stroke="var(--border)" strokeWidth="4" />
           <circle cx="140" cy="140" r="136" fill="none" stroke="var(--accent)" strokeWidth="4"
@@ -559,29 +612,28 @@ function CircleRecorder({ onSend, onCancel }) {
             strokeDashoffset={`${2 * Math.PI * 136 * (1 - progress / 100)}`}
             strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s linear' }} />
         </svg>
-        
         <video ref={videoRef} autoPlay muted playsInline
           style={{
-            position: 'absolute', top: '2.8%', left: '2.8%',
-            width: '94.4%', height: '94.4%', borderRadius: '50%',
+            position: 'absolute', top: '3%', left: '3%',
+            width: '94%', height: '94%', borderRadius: '50%',
             objectFit: 'cover', background: '#000'
           }} />
       </div>
 
-      <div style={{ marginTop: 20, fontSize: 20, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+      <div style={{ marginTop: 16, fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
         {formatDuration(duration)}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
+      <div style={{ display: 'flex', gap: 20, marginTop: 20 }}>
         <button onClick={handleCancel} style={{
-          width: 56, height: 56, borderRadius: '50%', border: 'none',
+          width: 52, height: 52, borderRadius: '50%', border: 'none',
           background: 'rgba(255,68,102,0.2)', color: 'var(--danger)',
-          cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          cursor: 'pointer', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>✕</button>
         <button onClick={doSend} style={{
-          width: 56, height: 56, borderRadius: '50%', border: 'none',
+          width: 52, height: 52, borderRadius: '50%', border: 'none',
           background: 'var(--accent)', color: 'var(--bg-primary)',
-          cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          cursor: 'pointer', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>▶</button>
       </div>
     </div>
@@ -589,7 +641,7 @@ function CircleRecorder({ onSend, onCancel }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ─── VIDEO CALL SCREEN ───────────────────────────────────────────
+// ─── VIDEO CALL ──────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd }) {
   const localRef = useRef();
@@ -605,13 +657,13 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
   useEffect(() => {
     (async () => {
       const constraints = { audio: true, video: callType === 'video' ? { facingMode: 'user' } : false };
-      localStream.current = await navigator.mediaDevices.getUserMedia(constraints);
-      if (localRef.current) localRef.current.srcObject = localStream.current;
+      const { stream, error } = await requestMediaPermission(constraints);
+      if (error) { alert(error); onEnd(); return; }
+      localStream.current = stream;
+      if (localRef.current) localRef.current.srcObject = stream;
 
-      const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-      pc.current = new RTCPeerConnection(config);
-
-      localStream.current.getTracks().forEach(t => pc.current.addTrack(t, localStream.current));
+      pc.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      stream.getTracks().forEach(t => pc.current.addTrack(t, stream));
 
       pc.current.ontrack = (e) => {
         if (remoteRef.current) remoteRef.current.srcObject = e.streams[0];
@@ -620,11 +672,7 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
       };
 
       pc.current.onicecandidate = (e) => {
-        if (e.candidate) {
-          ws.current.send(JSON.stringify({
-            type: 'call_ice_candidate', callId, candidate: e.candidate
-          }));
-        }
+        if (e.candidate) ws.current.send(JSON.stringify({ type: 'call_ice_candidate', callId, candidate: e.candidate }));
       };
 
       if (isIncoming && offer) {
@@ -635,29 +683,17 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
       } else {
         const off = await pc.current.createOffer();
         await pc.current.setLocalDescription(off);
-        // offer already sent
       }
     })();
 
     const handleMsg = (e) => {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'call_answered' && msg.callId === callId) {
-        pc.current.setRemoteDescription(new RTCSessionDescription(msg.answer));
-      }
-      if (msg.type === 'call_ice_candidate' && msg.callId === callId) {
-        pc.current.addIceCandidate(new RTCIceCandidate(msg.candidate));
-      }
-      if ((msg.type === 'call_ended' || msg.type === 'call_rejected') && msg.callId === callId) {
-        cleanup();
-        onEnd();
-      }
+      if (msg.type === 'call_answered' && msg.callId === callId) pc.current.setRemoteDescription(new RTCSessionDescription(msg.answer));
+      if (msg.type === 'call_ice_candidate' && msg.callId === callId) pc.current.addIceCandidate(new RTCIceCandidate(msg.candidate));
+      if ((msg.type === 'call_ended' || msg.type === 'call_rejected') && msg.callId === callId) { cleanup(); onEnd(); }
     };
     ws.current.addEventListener('message', handleMsg);
-
-    return () => {
-      cleanup();
-      ws.current.removeEventListener('message', handleMsg);
-    };
+    return () => { cleanup(); ws.current.removeEventListener('message', handleMsg); };
   }, []);
 
   const cleanup = () => {
@@ -668,18 +704,7 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
 
   const endCall = () => {
     ws.current.send(JSON.stringify({ type: 'call_end', callId }));
-    cleanup();
-    onEnd();
-  };
-
-  const toggleMute = () => {
-    const audioTrack = localStream.current?.getAudioTracks()[0];
-    if (audioTrack) { audioTrack.enabled = !audioTrack.enabled; setMuted(!muted); }
-  };
-
-  const toggleVideo = () => {
-    const videoTrack = localStream.current?.getVideoTracks()[0];
-    if (videoTrack) { videoTrack.enabled = !videoTrack.enabled; setVideoOff(!videoOff); }
+    cleanup(); onEnd();
   };
 
   return (
@@ -689,50 +714,46 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
     }}>
       {callType === 'video' ? (
         <>
-          <video ref={remoteRef} autoPlay playsInline style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover'
-          }} />
+          <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
           <video ref={localRef} autoPlay muted playsInline style={{
-            position: 'absolute', top: 20, right: 20, width: 120, height: 160,
-            borderRadius: 16, objectFit: 'cover', border: '2px solid var(--border)',
-            zIndex: 10
+            position: 'absolute', top: 'max(20px, var(--safe-top))', right: 16, width: 100, height: 140,
+            borderRadius: 16, objectFit: 'cover', border: '2px solid var(--border)', zIndex: 10
           }} />
         </>
       ) : (
         <div style={{ textAlign: 'center' }}>
           <div style={{
-            width: 100, height: 100, borderRadius: '50%', background: 'var(--accent-glow)',
+            width: 80, height: 80, borderRadius: '50%', background: 'var(--accent-glow)',
             border: '3px solid var(--accent)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', margin: '0 auto 16px', fontSize: 40
+            justifyContent: 'center', margin: '0 auto 16px', fontSize: 36
           }}>🎧</div>
-          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{callerName || 'Звонок'}</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            {connected ? formatDuration(duration) : 'Соединение...'}
-          </p>
+          <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{callerName || 'Звонок'}</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{connected ? formatDuration(duration) : 'Соединение...'}</p>
           <audio ref={remoteRef} autoPlay />
         </div>
       )}
-
-      <div style={{
-        position: 'absolute', bottom: 40, display: 'flex', gap: 20, zIndex: 20
-      }}>
-        <button onClick={toggleMute} style={{
-          width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
+      <div style={{ position: 'absolute', bottom: 'max(40px, calc(var(--safe-bottom) + 20px))', display: 'flex', gap: 16, zIndex: 20 }}>
+        <button onClick={() => {
+          const t = localStream.current?.getAudioTracks()[0];
+          if (t) { t.enabled = !t.enabled; setMuted(!muted); }
+        }} style={{
+          width: 52, height: 52, borderRadius: '50%', border: 'none', cursor: 'pointer',
           background: muted ? 'var(--danger)' : 'rgba(255,255,255,0.15)',
-          color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>{muted ? '🔇' : '🎤'}</button>
-
         {callType === 'video' && (
-          <button onClick={toggleVideo} style={{
-            width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          <button onClick={() => {
+            const t = localStream.current?.getVideoTracks()[0];
+            if (t) { t.enabled = !t.enabled; setVideoOff(!videoOff); }
+          }} style={{
+            width: 52, height: 52, borderRadius: '50%', border: 'none', cursor: 'pointer',
             background: videoOff ? 'var(--danger)' : 'rgba(255,255,255,0.15)',
-            color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>{videoOff ? '📷' : '🎥'}</button>
         )}
-
         <button onClick={endCall} style={{
-          width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
-          background: 'var(--danger)', color: '#fff', fontSize: 22,
+          width: 52, height: 52, borderRadius: '50%', border: 'none', cursor: 'pointer',
+          background: 'var(--danger)', color: '#fff', fontSize: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>📞</button>
       </div>
@@ -741,41 +762,39 @@ function VideoCall({ callId, callType, isIncoming, offer, callerName, ws, onEnd 
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ─── INCOMING CALL POPUP ─────────────────────────────────────────
+// ─── INCOMING CALL ───────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
-function IncomingCall({ callData, ws, onAccept, onReject }) {
+function IncomingCall({ callData, onAccept, onReject }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 3000, animation: 'fadeIn 0.3s ease'
+      zIndex: 3000, animation: 'fadeIn 0.3s ease', padding: 20
     }}>
       <div style={{
-        textAlign: 'center', padding: 40, background: 'var(--bg-secondary)',
-        borderRadius: 24, boxShadow: 'var(--shadow)', minWidth: 280
+        textAlign: 'center', padding: '32px 24px', background: 'var(--bg-secondary)',
+        borderRadius: 24, boxShadow: 'var(--shadow)', width: '100%', maxWidth: 280
       }}>
         <div style={{
-          width: 80, height: 80, borderRadius: '50%', background: 'var(--accent-glow)',
-          border: '3px solid var(--accent)', margin: '0 auto 16px',
+          width: 72, height: 72, borderRadius: '50%', background: 'var(--accent-glow)',
+          border: '3px solid var(--accent)', margin: '0 auto 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 36, animation: 'recording 2s infinite'
+          fontSize: 32, animation: 'recording 2s infinite'
         }}>
           {callData.callType === 'video' ? '🎥' : '📞'}
         </div>
-        <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Входящий {callData.callType === 'video' ? 'видео' : 'аудио'}звонок</h3>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
-          {callData.callerName || 'Неизвестный'}
-        </p>
-        <div style={{ display: 'flex', gap: 24, justifyContent: 'center' }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Входящий {callData.callType === 'video' ? 'видео' : 'аудио'}звонок</h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 20 }}>{callData.callerName || 'Неизвестный'}</p>
+        <div style={{ display: 'flex', gap: 20, justifyContent: 'center' }}>
           <button onClick={onReject} style={{
-            width: 56, height: 56, borderRadius: '50%', border: 'none',
+            width: 52, height: 52, borderRadius: '50%', border: 'none',
             background: 'var(--danger)', color: '#fff', cursor: 'pointer',
-            fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>✕</button>
           <button onClick={onAccept} style={{
-            width: 56, height: 56, borderRadius: '50%', border: 'none',
+            width: 52, height: 52, borderRadius: '50%', border: 'none',
             background: 'var(--accent)', color: 'var(--bg-primary)', cursor: 'pointer',
-            fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center'
+            fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>✓</button>
         </div>
       </div>
@@ -797,26 +816,24 @@ function MessageBubble({ message, isOwn, serverUrl }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => {
               if (audioRef.current) {
-                if (playing) { audioRef.current.pause(); }
-                else { audioRef.current.play(); }
+                if (playing) audioRef.current.pause();
+                else audioRef.current.play().catch(() => {});
                 setPlaying(!playing);
               }
             }} style={{
-              width: 36, height: 36, borderRadius: '50%', border: 'none',
+              width: 34, height: 34, borderRadius: '50%', border: 'none',
               background: isOwn ? 'rgba(0,212,170,0.3)' : 'var(--bg-hover)',
               color: isOwn ? 'var(--accent)' : 'var(--text-primary)',
-              cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center'
+              cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0
             }}>{playing ? '⏸' : '▶'}</button>
-            <div style={{ flex: 1 }}>
-              <div style={{
-                height: 24, display: 'flex', alignItems: 'center', gap: 1
-              }}>
-                {Array.from({ length: 30 }, (_, i) => (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ height: 22, display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+                {Array.from({ length: 25 }, (_, i) => (
                   <div key={i} style={{
-                    width: 3, borderRadius: 2,
-                    height: Math.random() * 18 + 4,
-                    background: isOwn ? 'var(--accent)' : 'var(--text-secondary)',
-                    opacity: 0.6
+                    width: 3, borderRadius: 2, flexShrink: 0,
+                    height: Math.random() * 16 + 4,
+                    background: isOwn ? 'var(--accent)' : 'var(--text-secondary)', opacity: 0.6
                   }} />
                 ))}
               </div>
@@ -824,32 +841,27 @@ function MessageBubble({ message, isOwn, serverUrl }) {
                 {message.duration ? formatDuration(message.duration) : '0:00'}
               </span>
             </div>
-            <audio ref={audioRef} src={`${serverUrl}${message.file_url}`}
-              onEnded={() => setPlaying(false)} />
+            <audio ref={audioRef} src={`${serverUrl}${message.file_url}`} onEnded={() => setPlaying(false)} preload="none" />
           </div>
         );
 
       case 'circle':
         return (
           <div style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
-            <div style={{ position: 'relative', width: 'min(200px, 50vw)', height: 'min(200px, 50vw)' }}>
+            <div style={{ position: 'relative', width: 'min(180px, 45vw)', height: 'min(180px, 45vw)' }}>
               <video
                 src={`${serverUrl}${message.file_url}`}
                 style={{
                   width: '100%', height: '100%', borderRadius: '50%',
-                  objectFit: 'cover', border: '3px solid var(--accent)',
-                  cursor: 'pointer'
+                  objectFit: 'cover', border: '3px solid var(--accent)', cursor: 'pointer'
                 }}
-                onClick={(e) => {
-                  const v = e.target;
-                  if (v.paused) v.play(); else v.pause();
-                }}
-                playsInline
+                onClick={(e) => { const v = e.target; if (v.paused) v.play().catch(() => {}); else v.pause(); }}
+                playsInline preload="none"
               />
               <span style={{
-                position: 'absolute', bottom: 8, right: 8,
-                background: 'rgba(0,0,0,0.6)', borderRadius: 8,
-                padding: '2px 6px', fontSize: 11, color: '#fff'
+                position: 'absolute', bottom: 6, right: 6,
+                background: 'rgba(0,0,0,0.6)', borderRadius: 6,
+                padding: '2px 5px', fontSize: 10, color: '#fff'
               }}>
                 {message.duration ? formatDuration(message.duration) : ''}
               </span>
@@ -860,7 +872,7 @@ function MessageBubble({ message, isOwn, serverUrl }) {
       case 'image':
         return (
           <img src={`${serverUrl}${message.file_url}`} alt=""
-            style={{ maxWidth: 'min(280px, 70vw)', maxHeight: 300, borderRadius: 12, display: 'block' }}
+            style={{ maxWidth: '100%', maxHeight: 260, borderRadius: 12, display: 'block' }}
             loading="lazy" />
         );
 
@@ -872,12 +884,12 @@ function MessageBubble({ message, isOwn, serverUrl }) {
               color: 'var(--accent)', textDecoration: 'none'
             }}>
             <div style={{
-              width: 40, height: 40, borderRadius: 10,
+              width: 36, height: 36, borderRadius: 8,
               background: 'var(--accent-glow)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', fontSize: 18
+              alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0
             }}>📎</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{message.file_name}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{message.file_name}</div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                 {message.file_size ? `${(message.file_size / 1024).toFixed(1)} KB` : ''}
               </div>
@@ -886,10 +898,10 @@ function MessageBubble({ message, isOwn, serverUrl }) {
         );
 
       case 'emoji':
-        return <span style={{ fontSize: 48 }}>{message.content}</span>;
+        return <span style={{ fontSize: 44 }}>{message.content}</span>;
 
       default:
-        return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</span>;
+        return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14, lineHeight: 1.5 }}>{message.content}</span>;
     }
   };
 
@@ -897,14 +909,12 @@ function MessageBubble({ message, isOwn, serverUrl }) {
     return (
       <div style={{
         display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start',
-        padding: '4px 16px', animation: 'fadeIn 0.2s ease'
+        padding: '4px 12px', animation: 'fadeIn 0.2s ease'
       }}>
         <div>
           {renderContent()}
-          <div style={{ textAlign: isOwn ? 'right' : 'left', marginTop: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {formatMessageTime(message.created_at)}
-            </span>
+          <div style={{ textAlign: isOwn ? 'right' : 'left', marginTop: 3 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{formatMessageTime(message.created_at)}</span>
           </div>
         </div>
       </div>
@@ -914,26 +924,81 @@ function MessageBubble({ message, isOwn, serverUrl }) {
   return (
     <div style={{
       display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start',
-      padding: '2px 16px', animation: 'fadeIn 0.15s ease'
+      padding: '2px 12px', animation: 'fadeIn 0.15s ease'
     }}>
       <div style={{
-        maxWidth: '75%', padding: message.type === 'emoji' ? '8px 12px' : '10px 14px',
-        borderRadius: isOwn ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+        maxWidth: 'min(75%, 320px)', padding: message.type === 'emoji' ? '6px 10px' : '9px 12px',
+        borderRadius: isOwn ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
         background: message.type === 'emoji' ? 'transparent' : (isOwn ? 'var(--msg-out)' : 'var(--msg-in)'),
         border: message.type === 'emoji' ? 'none' : `1px solid ${isOwn ? 'rgba(0,212,170,0.15)' : 'var(--border)'}`,
-        fontSize: 14, lineHeight: 1.5
       }}>
         {!isOwn && message.sender_name && (
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)', marginBottom: 3 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 2 }}>
             {message.sender_name}
           </div>
         )}
         {renderContent()}
-        <div style={{ textAlign: 'right', marginTop: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {formatMessageTime(message.created_at)}
-          </span>
+        <div style={{ textAlign: 'right', marginTop: 3 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{formatMessageTime(message.created_at)}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ─── SETTINGS / PROFILE PANEL ────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+function SettingsPanel({ user, onClose, onLogout }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      animation: 'fadeIn 0.2s ease'
+    }} onClick={onClose}>
+      <div style={{
+        width: '100%', maxWidth: 400, background: 'var(--bg-secondary)',
+        borderRadius: '20px 20px 0 0', padding: '20px 20px max(20px, var(--safe-bottom))',
+        animation: 'slideUp 0.3s ease'
+      }} onClick={e => e.stopPropagation()}>
+        {/* Profile info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: 'var(--accent)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 700, color: 'var(--bg-primary)', flexShrink: 0
+          }}>
+            {user.display_name?.[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{user.display_name}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>@{user.username}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{user.email}</div>
+          </div>
+        </div>
+
+        {/* Encryption badge */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+          background: 'var(--accent-glow2)', borderRadius: 12, marginBottom: 12
+        }}>
+          <span style={{ fontSize: 18 }}>🔒</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>Шифрование AES-256</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Сообщения шифруются на сервере</div>
+          </div>
+        </div>
+
+        {/* Logout */}
+        <button onClick={onLogout} style={{
+          width: '100%', padding: '14px 0', border: 'none',
+          borderRadius: 12, background: 'rgba(255,68,102,0.1)', color: 'var(--danger)',
+          fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', gap: 8
+        }}>
+          Выйти из аккаунта
+        </button>
       </div>
     </div>
   );
@@ -942,17 +1007,20 @@ function MessageBubble({ message, isOwn, serverUrl }) {
 // ══════════════════════════════════════════════════════════════════
 // ─── CHAT LIST SIDEBAR ───────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
-function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
+function ChatList({ chats, activeChat, onSelectChat, user, onLogout }) {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleSearch = async (q) => {
     setSearch(q);
     if (q.length >= 2) {
-      const users = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
-      setSearchResults(users);
-      setShowSearch(true);
+      try {
+        const users = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
+        setSearchResults(users);
+        setShowSearch(true);
+      } catch { setSearchResults([]); }
     } else {
       setSearchResults([]);
       setShowSearch(false);
@@ -974,29 +1042,36 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)'
     }}>
+      {showSettings && (
+        <SettingsPanel user={user} onClose={() => setShowSettings(false)} onLogout={onLogout} />
+      )}
+
       {/* Header */}
       <div style={{
-        padding: '16px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderBottom: '1px solid var(--border)'
+        padding: 'max(12px, var(--safe-top)) 14px 10px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: '1px solid var(--border)', flexShrink: 0
       }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>
           <span style={{ color: 'var(--accent)' }}>P</span>ulse
         </h2>
-        <button onClick={onNewChat} style={{
-          width: 36, height: 36, borderRadius: 10, border: 'none',
-          background: 'var(--accent-glow)', color: 'var(--accent)',
-          cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>+</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setShowSettings(true)} style={{
+            width: 34, height: 34, borderRadius: 10, border: 'none',
+            background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+            cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>⚙</button>
+        </div>
       </div>
 
       {/* Search */}
-      <div style={{ padding: '8px 12px' }}>
+      <div style={{ padding: '8px 10px', flexShrink: 0 }}>
         <input
           placeholder="Поиск пользователей..."
           value={search}
           onChange={e => handleSearch(e.target.value)}
           style={{
-            width: '100%', padding: '10px 14px', borderRadius: 10,
+            width: '100%', padding: '9px 12px', borderRadius: 10,
             border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
             color: 'var(--text-primary)', fontSize: 13, outline: 'none'
           }}
@@ -1005,26 +1080,24 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
 
       {/* Search Results */}
       {showSearch && searchResults.length > 0 && (
-        <div style={{ padding: '0 12px 8px' }}>
+        <div style={{ padding: '0 10px 6px', flexShrink: 0 }}>
           {searchResults.map(u => (
             <div key={u.id} onClick={() => startChat(u)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                borderRadius: 10, cursor: 'pointer', transition: 'background 0.15s'
-              }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                borderRadius: 10, cursor: 'pointer'
+              }}>
               <div style={{
-                width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-glow)',
+                width: 36, height: 36, borderRadius: '50%', background: 'var(--accent-glow)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 700, color: 'var(--accent)',
-                border: '2px solid var(--accent)'
+                fontSize: 14, fontWeight: 700, color: 'var(--accent)',
+                border: '2px solid var(--accent)', flexShrink: 0
               }}>
                 {u.display_name?.[0]?.toUpperCase() || '?'}
               </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{u.display_name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>@{u.username}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{u.display_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>@{u.username}</div>
               </div>
             </div>
           ))}
@@ -1032,7 +1105,12 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
       )}
 
       {/* Chat List */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        {chats.length === 0 && (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            Найдите пользователя, чтобы начать общение
+          </div>
+        )}
         {chats.map(chat => {
           const name = chat.type === 'direct' ? chat.other_user?.display_name : chat.name;
           const avatar = chat.type === 'direct' ? chat.other_user?.display_name?.[0] : chat.name?.[0];
@@ -1042,19 +1120,17 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
           return (
             <div key={chat.id} onClick={() => onSelectChat(chat)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
                 cursor: 'pointer', transition: 'background 0.15s',
                 background: isActive ? 'var(--bg-active)' : 'transparent',
                 borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent'
-              }}
-              onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-              onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-              <div style={{ position: 'relative' }}>
+              }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div style={{
-                  width: 48, height: 48, borderRadius: '50%',
+                  width: 44, height: 44, borderRadius: '50%',
                   background: 'linear-gradient(135deg, var(--accent-glow), var(--bg-tertiary))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 700, color: 'var(--accent)',
+                  fontSize: 16, fontWeight: 700, color: 'var(--accent)',
                   border: '2px solid var(--border)'
                 }}>
                   {avatar?.toUpperCase() || '?'}
@@ -1062,8 +1138,8 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
                 {isOnline && (
                   <div style={{
                     position: 'absolute', bottom: 0, right: 0,
-                    width: 14, height: 14, borderRadius: '50%',
-                    background: 'var(--accent)', border: '3px solid var(--bg-secondary)'
+                    width: 12, height: 12, borderRadius: '50%',
+                    background: 'var(--accent)', border: '2px solid var(--bg-secondary)'
                   }} />
                 )}
               </div>
@@ -1072,13 +1148,13 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
                   <span style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {name || 'Чат'}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 8 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 6 }}>
                     {chat.last_message_at ? formatTime(chat.last_message_at) : ''}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                   <span style={{
-                    fontSize: 13, color: 'var(--text-secondary)',
+                    fontSize: 12, color: 'var(--text-secondary)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}>
                     {chat.last_message_type === 'voice' ? '🎤 Голосовое' :
@@ -1089,10 +1165,11 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
                   </span>
                   {chat.unread_count > 0 && (
                     <div style={{
-                      minWidth: 20, height: 20, borderRadius: 10,
+                      minWidth: 18, height: 18, borderRadius: 9,
                       background: 'var(--accent)', color: 'var(--bg-primary)',
-                      fontSize: 11, fontWeight: 700, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', padding: '0 6px'
+                      fontSize: 10, fontWeight: 700, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+                      flexShrink: 0, marginLeft: 6
                     }}>
                       {chat.unread_count}
                     </div>
@@ -1104,27 +1181,27 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
         })}
       </div>
 
-      {/* User Info */}
+      {/* User footer */}
       <div style={{
-        padding: '12px 16px', paddingBottom: 'max(12px, var(--safe-bottom))',
+        padding: '10px 14px', paddingBottom: 'max(10px, var(--safe-bottom))',
         borderTop: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0
       }}>
         <div style={{
-          width: 36, height: 36, borderRadius: '50%',
+          width: 32, height: 32, borderRadius: '50%',
           background: 'var(--accent)', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 700, color: 'var(--bg-primary)',
-          flexShrink: 0
+          fontSize: 13, fontWeight: 700, color: 'var(--bg-primary)', flexShrink: 0
         }}>
           {user.display_name?.[0]?.toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user.display_name}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>@{user.username}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>@{user.username}</div>
         </div>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
       </div>
     </div>
   );
@@ -1150,30 +1227,30 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
   const chatStatus = chat.type === 'direct' ? chat.other_user?.status : null;
   const serverUrl = API_BASE;
 
-  // Close attach menu on outside click
   useEffect(() => {
     const handleClick = (e) => { 
       if (attachRef.current && !attachRef.current.contains(e.target)) setShowAttachMenu(false); 
     };
     document.addEventListener('mousedown', handleClick);
-    document.addEventListener('touchstart', handleClick);
+    document.addEventListener('touchstart', handleClick, { passive: true });
     return () => {
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('touchstart', handleClick);
     };
   }, []);
 
-  // Load messages
   useEffect(() => {
     (async () => {
-      const msgs = await api(`/api/chats/${chat.id}/messages`);
-      setMessages(msgs);
-      setTimeout(() => messagesEnd.current?.scrollIntoView({ behavior: 'auto' }), 100);
+      try {
+        const msgs = await api(`/api/chats/${chat.id}/messages`);
+        setMessages(msgs);
+        setTimeout(() => messagesEnd.current?.scrollIntoView({ behavior: 'auto' }), 100);
+      } catch (e) { console.error('Load messages error:', e); }
     })();
   }, [chat.id]);
 
-  // Listen for new messages
   useEffect(() => {
+    if (!ws.current) return;
     const handler = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === 'new_message' && msg.chatId === chat.id) {
@@ -1182,23 +1259,17 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
       }
       if (msg.type === 'typing' && msg.chatId === chat.id) {
         setTyping(prev => ({ ...prev, [msg.userId]: msg.isTyping }));
-        if (msg.isTyping) {
-          setTimeout(() => setTyping(prev => ({ ...prev, [msg.userId]: false })), 3000);
-        }
+        if (msg.isTyping) setTimeout(() => setTyping(prev => ({ ...prev, [msg.userId]: false })), 3000);
       }
     };
     ws.current.addEventListener('message', handler);
-    return () => ws.current.removeEventListener('message', handler);
+    return () => ws.current?.removeEventListener('message', handler);
   }, [chat.id, ws]);
 
   const sendMessage = (content, messageType = 'text', extra = {}) => {
-    ws.current.send(JSON.stringify({
-      type: 'message',
-      chatId: chat.id,
-      content,
-      messageType,
-      ...extra
-    }));
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'message', chatId: chat.id, content, messageType, ...extra }));
+    }
   };
 
   const handleSend = () => {
@@ -1211,37 +1282,44 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
   };
 
   const handleTyping = () => {
-    ws.current.send(JSON.stringify({ type: 'typing', chatId: chat.id, isTyping: true }));
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: 'typing', chatId: chat.id, isTyping: true }));
+    }
     clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => {
-      ws.current.send(JSON.stringify({ type: 'typing', chatId: chat.id, isTyping: false }));
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ type: 'typing', chatId: chat.id, isTyping: false }));
+      }
     }, 2000);
   };
 
   const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const isImage = file.type.startsWith('image/');
-    const type = isImage ? 'images' : 'files';
-    const data = await uploadFile(type, file);
-    sendMessage(file.name, isImage ? 'image' : 'file', {
-      fileUrl: data.url,
-      fileName: data.filename,
-      fileSize: data.size
-    });
+    try {
+      const isImage = file.type.startsWith('image/');
+      const type = isImage ? 'images' : 'files';
+      const data = await uploadFile(type, file);
+      sendMessage(file.name, isImage ? 'image' : 'file', { fileUrl: data.url, fileName: data.filename, fileSize: data.size });
+    } catch (err) { console.error('Upload error:', err); }
     setShowAttachMenu(false);
+    if (fileInput.current) fileInput.current.value = '';
   };
 
   const handleVoiceSend = async (blob, dur) => {
     setRecording(false);
-    const data = await uploadFile('voice', new File([blob], 'voice.webm'));
-    sendMessage('Голосовое сообщение', 'voice', { fileUrl: data.url, duration: dur });
+    try {
+      const data = await uploadFile('voice', new File([blob], 'voice.webm'));
+      sendMessage('Голосовое сообщение', 'voice', { fileUrl: data.url, duration: dur });
+    } catch (err) { console.error('Voice upload error:', err); }
   };
 
   const handleCircleSend = async (blob, dur) => {
     setRecordingCircle(false);
-    const data = await uploadFile('circles', new File([blob], 'circle.webm'));
-    sendMessage('Кружочек', 'circle', { fileUrl: data.url, duration: dur });
+    try {
+      const data = await uploadFile('circles', new File([blob], 'circle.webm'));
+      sendMessage('Кружочек', 'circle', { fileUrl: data.url, duration: dur });
+    } catch (err) { console.error('Circle upload error:', err); }
   };
 
   const typingUsers = Object.entries(typing).filter(([id, t]) => t && id !== user.id);
@@ -1249,15 +1327,16 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
   return (
     <div style={{
       height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)',
-      maxHeight: '100dvh', maxHeight: '100vh'
+      maxHeight: '100dvh'
     }}>
       {/* Header */}
       <div style={{
-        padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10,
+        padding: 'max(8px, var(--safe-top)) 10px 8px',
+        display: 'flex', alignItems: 'center', gap: 8,
         borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)',
-        flexShrink: 0, minHeight: 56
+        flexShrink: 0, minHeight: 52
       }}>
-        <button onClick={onBack} style={{
+        <button onClick={onBack} className="desktop-back-btn" style={{
           width: 32, height: 32, borderRadius: 8,
           border: 'none', background: 'transparent', color: 'var(--text-secondary)',
           cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1265,10 +1344,10 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
         }}>←</button>
 
         <div style={{
-          width: 36, height: 36, borderRadius: '50%',
+          width: 34, height: 34, borderRadius: '50%',
           background: 'var(--accent-glow)', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 700, color: 'var(--accent)',
+          fontSize: 13, fontWeight: 700, color: 'var(--accent)',
           border: '2px solid var(--border)', flexShrink: 0
         }}>
           {chatName?.[0]?.toUpperCase() || '?'}
@@ -1289,13 +1368,30 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
       {/* Messages */}
       <div style={{
-        flex: 1, overflowY: 'auto', padding: '12px 0',
-        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,212,170,0.02) 0%, transparent 50%)',
-        WebkitOverflowScrolling: 'touch'
+        flex: 1, overflowY: 'auto', padding: '8px 0',
+        WebkitOverflowScrolling: 'touch',
+        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,212,170,0.02) 0%, transparent 50%)'
       }}>
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} isOwn={msg.sender_id === user.id} serverUrl={serverUrl} />
         ))}
+        {typingUsers.length > 0 && (
+          <div style={{ padding: '4px 12px', animation: 'fadeIn 0.2s' }}>
+            <div style={{
+              display: 'inline-block', padding: '8px 14px', borderRadius: '16px 16px 16px 4px',
+              background: 'var(--msg-in)', border: '1px solid var(--border)'
+            }}>
+              <div style={{ display: 'flex', gap: 3 }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{
+                    width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)',
+                    animation: `pulse 1.4s infinite ${i * 0.2}s`
+                  }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEnd} />
       </div>
 
@@ -1306,49 +1402,37 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
       {/* Input Area */}
       <div style={{
-        padding: '8px 8px', paddingBottom: 'max(8px, var(--safe-bottom))',
+        padding: '6px 6px', paddingBottom: 'max(6px, var(--safe-bottom))',
         borderTop: '1px solid var(--border)',
         background: 'var(--bg-secondary)', flexShrink: 0, position: 'relative'
       }}>
         {showEmoji && <EmojiPicker onSelect={e => setText(t => t + e)} onClose={() => setShowEmoji(false)} />}
 
-        {/* Attach menu popup */}
         {showAttachMenu && (
           <div ref={attachRef} style={{
-            position: 'absolute', bottom: 56, left: 8,
+            position: 'absolute', bottom: 52, left: 6,
             background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
             borderRadius: 12, boxShadow: 'var(--shadow)', zIndex: 50,
-            padding: '4px 0', animation: 'slideUp 0.15s ease',
-            minWidth: 180
+            padding: '4px 0', animation: 'slideUp 0.15s ease', minWidth: 160
           }}>
-            <button onClick={() => { fileInput.current?.click(); }} style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '10px 14px', border: 'none', background: 'transparent',
-              color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', textAlign: 'left'
-            }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-            >📎 Файл / Фото</button>
-            <button onClick={() => { setRecordingCircle(true); setShowAttachMenu(false); }} style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '10px 14px', border: 'none', background: 'transparent',
-              color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', textAlign: 'left'
-            }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-            >⭕ Кружочек</button>
+            <button onClick={() => { fileInput.current?.click(); }} style={attachMenuBtnStyle}>
+              📎 Файл / Фото
+            </button>
+            <button onClick={() => { setRecordingCircle(true); setShowAttachMenu(false); }} style={attachMenuBtnStyle}>
+              ⭕ Кружочек
+            </button>
           </div>
         )}
 
-        <input ref={fileInput} type="file" hidden onChange={handleFile} />
+        <input ref={fileInput} type="file" hidden onChange={handleFile} accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip,.rar,.txt" />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {recording ? (
             <VoiceRecorder onSend={handleVoiceSend} onCancel={() => setRecording(false)} />
           ) : (
             <>
-              <button onClick={() => setShowEmoji(!showEmoji)} style={inputBtnStyle} title="Эмодзи">😊</button>
-              <button onClick={() => setShowAttachMenu(!showAttachMenu)} style={inputBtnStyle} title="Прикрепить">+</button>
+              <button onClick={() => setShowEmoji(!showEmoji)} style={inputBtnStyle}>😊</button>
+              <button onClick={() => setShowAttachMenu(!showAttachMenu)} style={inputBtnStyle}>+</button>
 
               <input
                 placeholder="Сообщение..."
@@ -1356,7 +1440,7 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
                 onChange={e => { setText(e.target.value); handleTyping(); }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 style={{
-                  flex: 1, padding: '10px 14px', borderRadius: 20, minWidth: 0,
+                  flex: 1, padding: '10px 12px', borderRadius: 20, minWidth: 0,
                   border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
                   color: 'var(--text-primary)', fontSize: 14, outline: 'none'
                 }}
@@ -1364,16 +1448,16 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
               {text.trim() ? (
                 <button onClick={handleSend} style={{
-                  width: 40, height: 40, borderRadius: '50%', border: 'none',
+                  width: 38, height: 38, borderRadius: '50%', border: 'none',
                   background: 'var(--accent)', color: 'var(--bg-primary)',
-                  cursor: 'pointer', fontSize: 16, display: 'flex',
+                  cursor: 'pointer', fontSize: 15, display: 'flex',
                   alignItems: 'center', justifyContent: 'center', flexShrink: 0
                 }}>▶</button>
               ) : (
                 <button onClick={() => setRecording(true)} style={{
-                  width: 40, height: 40, borderRadius: '50%', border: 'none',
+                  width: 38, height: 38, borderRadius: '50%', border: 'none',
                   background: 'var(--accent-glow)', color: 'var(--accent)',
-                  cursor: 'pointer', fontSize: 18, display: 'flex',
+                  cursor: 'pointer', fontSize: 17, display: 'flex',
                   alignItems: 'center', justifyContent: 'center', flexShrink: 0
                 }}>🎤</button>
               )}
@@ -1386,17 +1470,21 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 }
 
 const headerBtnStyle = {
-  width: 34, height: 34, borderRadius: 10, border: 'none',
-  background: 'var(--bg-tertiary)', cursor: 'pointer', fontSize: 15,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  flexShrink: 0
+  width: 32, height: 32, borderRadius: 8, border: 'none',
+  background: 'var(--bg-tertiary)', cursor: 'pointer', fontSize: 14,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
 };
 
 const inputBtnStyle = {
   width: 34, height: 34, borderRadius: '50%', border: 'none',
-  background: 'transparent', cursor: 'pointer', fontSize: 18,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  flexShrink: 0
+  background: 'transparent', cursor: 'pointer', fontSize: 17,
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+};
+
+const attachMenuBtnStyle = {
+  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+  padding: '10px 14px', border: 'none', background: 'transparent',
+  color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer', textAlign: 'left'
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -1407,20 +1495,45 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
-  const [showMobile, setShowMobile] = useState('list'); // 'list' | 'chat'
+  const [showMobile, setShowMobile] = useState('list');
   const [activeCall, setActiveCall] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
+  const [initializing, setInitializing] = useState(true);
   const ws = useRef(null);
   const reconnectTimer = useRef(null);
 
-  // ─── Init auth ─────────────────────────────
+  // ─── Init: verify saved token against server ───
   useEffect(() => {
-    const savedToken = localStorage.getItem('pulse_token');
-    const savedUser = localStorage.getItem('pulse_user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
+    (async () => {
+      const savedToken = localStorage.getItem('pulse_token');
+      if (!savedToken) {
+        setInitializing(false);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/verify`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const data = await res.json();
+        if (data.valid && data.user) {
+          setToken(savedToken);
+          setUser(data.user);
+          localStorage.setItem('pulse_user', JSON.stringify(data.user));
+        } else {
+          // Token invalid — clear and show login
+          localStorage.removeItem('pulse_token');
+          localStorage.removeItem('pulse_user');
+        }
+      } catch {
+        // Server unreachable — try using cached user data
+        const savedUser = localStorage.getItem('pulse_user');
+        if (savedUser) {
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
+        }
+      }
+      setInitializing(false);
+    })();
   }, []);
 
   // ─── WebSocket ─────────────────────────────
@@ -1437,13 +1550,19 @@ export default function App() {
 
     socket.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-
       switch (msg.type) {
+        case 'auth_error':
+          // Token rejected by WS — force re-login
+          localStorage.removeItem('pulse_token');
+          localStorage.removeItem('pulse_user');
+          setUser(null);
+          setToken(null);
+          break;
+
         case 'new_message':
           setChats(prev => {
             const chatExists = prev.some(c => c.id === msg.chatId);
             if (!chatExists) {
-              // Chat not in list — fetch it from server and add
               api(`/api/chats/${msg.chatId}`).then(newChat => {
                 setChats(p => {
                   if (p.some(c => c.id === newChat.id)) return p;
@@ -1485,17 +1604,12 @@ export default function App() {
 
         case 'call_incoming':
           setIncomingCall({
-            callId: msg.callId,
-            callerId: msg.callerId,
-            chatId: msg.chatId,
-            callType: msg.callType,
-            offer: msg.offer,
-            callerName: 'Входящий звонок'
+            callId: msg.callId, callerId: msg.callerId, chatId: msg.chatId,
+            callType: msg.callType, offer: msg.offer, callerName: 'Входящий звонок'
           });
           break;
 
         case 'call_created':
-          // Call offer was sent, waiting for answer
           break;
       }
     };
@@ -1539,7 +1653,6 @@ export default function App() {
   const handleSelectChat = (chat) => {
     setActiveChat(chat);
     setShowMobile('chat');
-    // Reset unread
     setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unread_count: 0 } : c));
   };
 
@@ -1548,36 +1661,26 @@ export default function App() {
     const targetUserId = activeChat.other_user?.id;
     if (!targetUserId) return;
 
-    // Create offer and send
     (async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const { stream, error } = await requestMediaPermission({
         audio: true,
         video: callType === 'video' ? { facingMode: 'user' } : false
       });
-      stream.getTracks().forEach(t => t.stop()); // We'll re-acquire in VideoCall
+      if (error) { alert(error); return; }
+      stream.getTracks().forEach(t => t.stop());
 
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      const offer = await pc.createOffer();
-      pc.close();
+      const tempPc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      const offer = await tempPc.createOffer();
+      tempPc.close();
 
       ws.current.send(JSON.stringify({
-        type: 'call_offer',
-        targetUserId,
-        chatId: activeChat.id,
-        callType,
-        offer
+        type: 'call_offer', targetUserId, chatId: activeChat.id, callType, offer
       }));
 
-      // Listen for callId
       const handler = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === 'call_created') {
-          setActiveCall({
-            callId: msg.callId,
-            callType,
-            isIncoming: false,
-            callerName: activeChat.other_user?.display_name
-          });
+          setActiveCall({ callId: msg.callId, callType, isIncoming: false, callerName: activeChat.other_user?.display_name });
           ws.current.removeEventListener('message', handler);
         }
       };
@@ -1588,11 +1691,8 @@ export default function App() {
   const handleAcceptCall = () => {
     if (!incomingCall) return;
     setActiveCall({
-      callId: incomingCall.callId,
-      callType: incomingCall.callType,
-      isIncoming: true,
-      offer: incomingCall.offer,
-      callerName: incomingCall.callerName
+      callId: incomingCall.callId, callType: incomingCall.callType,
+      isIncoming: true, offer: incomingCall.offer, callerName: incomingCall.callerName
     });
     setIncomingCall(null);
   };
@@ -1602,6 +1702,25 @@ export default function App() {
     ws.current.send(JSON.stringify({ type: 'call_reject', callId: incomingCall.callId }));
     setIncomingCall(null);
   };
+
+  // Loading state
+  if (initializing) {
+    return (
+      <>
+        <style>{globalStyles}</style>
+        <div style={{
+          height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg-primary)', flexDirection: 'column', gap: 16
+        }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%', border: '3px solid var(--border)',
+            borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite'
+          }} />
+          <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Загрузка...</span>
+        </div>
+      </>
+    );
+  }
 
   if (!user) return (
     <>
@@ -1616,57 +1735,51 @@ export default function App() {
 
       {activeCall && (
         <VideoCall
-          callId={activeCall.callId}
-          callType={activeCall.callType}
-          isIncoming={activeCall.isIncoming}
-          offer={activeCall.offer}
-          callerName={activeCall.callerName}
-          ws={ws}
-          onEnd={() => setActiveCall(null)}
+          callId={activeCall.callId} callType={activeCall.callType}
+          isIncoming={activeCall.isIncoming} offer={activeCall.offer}
+          callerName={activeCall.callerName} ws={ws} onEnd={() => setActiveCall(null)}
         />
       )}
 
       {incomingCall && (
-        <IncomingCall
-          callData={incomingCall}
-          ws={ws}
-          onAccept={handleAcceptCall}
-          onReject={handleRejectCall}
-        />
+        <IncomingCall callData={incomingCall} onAccept={handleAcceptCall} onReject={handleRejectCall} />
       )}
 
       <div style={{
-        height: '100dvh', height: '100vh', display: 'flex',
-        maxWidth: 1200, margin: '0 auto', overflow: 'hidden'
+        height: '100dvh', display: 'flex',
+        maxWidth: 1200, margin: '0 auto', overflow: 'hidden', width: '100%'
       }}>
-        {/* Sidebar */}
-        <div style={{
-          width: showMobile === 'chat' ? 0 : '100%',
-          maxWidth: showMobile === 'chat' ? 0 : 360,
-          flexShrink: 0,
-          overflow: 'hidden',
-          transition: 'none'
-        }}
-          className="sidebar-container"
+        {/* Sidebar — hidden on mobile when chat is open */}
+        <div
+          className={showMobile === 'chat' ? 'sidebar-mobile-hidden' : ''}
+          style={{
+            width: '100%',
+            maxWidth: 360,
+            flexShrink: 0,
+            height: '100%',
+            overflow: 'hidden'
+          }}
         >
-          <div style={{ width: showMobile === 'chat' ? 360 : '100%', minWidth: 280, height: '100%' }}>
-            <ChatList
-              chats={chats}
-              activeChat={activeChat}
-              onSelectChat={handleSelectChat}
-              onNewChat={() => {}}
-              user={user}
-            />
-          </div>
+          <ChatList
+            chats={chats}
+            activeChat={activeChat}
+            onSelectChat={handleSelectChat}
+            user={user}
+            onLogout={handleLogout}
+          />
         </div>
 
-        {/* Chat */}
-        <div style={{
-          flex: 1,
-          display: showMobile === 'list' && typeof window !== 'undefined' && window.innerWidth <= 768 ? 'none' : 'flex',
-          flexDirection: 'column',
-          minWidth: 0
-        }}>
+        {/* Chat — hidden on mobile when list is shown */}
+        <div
+          className={showMobile === 'list' ? 'chat-mobile-hidden' : ''}
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 0,
+            height: '100%'
+          }}
+        >
           {activeChat ? (
             <ChatView
               chat={activeChat}
@@ -1678,17 +1791,17 @@ export default function App() {
           ) : (
             <div style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexDirection: 'column', gap: 16
+              flexDirection: 'column', gap: 12
             }}>
               <div style={{
-                width: 80, height: 80, borderRadius: '50%',
+                width: 64, height: 64, borderRadius: '50%',
                 border: '2px solid var(--border)', display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
                 background: 'var(--accent-glow2)'
               }}>
-                <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', opacity: 0.5 }} />
+                <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', opacity: 0.5 }} />
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Выберите чат для начала общения</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Выберите чат</p>
             </div>
           )}
         </div>

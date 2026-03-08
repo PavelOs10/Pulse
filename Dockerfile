@@ -15,9 +15,12 @@ RUN cd client && npm run build
 # Copy server code
 COPY server/ server/
 
+# Data directory (DB + uploads) — mount a volume here!
+RUN mkdir -p /app/data
+
 EXPOSE 3000
 
 ENV NODE_ENV=production
-ENV JWT_SECRET=change-me-to-random-string
+ENV DATA_DIR=/app/data
 
 CMD ["node", "server/server.js"]
