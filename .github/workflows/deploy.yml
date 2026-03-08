@@ -1,9 +1,9 @@
-name: 🚀 Deploy Pulse Messenger
+name: Deploy Pulse Messenger
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # Ручной запуск
+  workflow_dispatch:
 
 env:
   APP_NAME: pulse-messenger
@@ -11,11 +11,8 @@ env:
   SERVICE_NAME: pulse-messenger
 
 jobs:
-  # ═══════════════════════════════════════════════
-  # ─── ТЕСТЫ И ПРОВЕРКИ ─────────────────────────
-  # ═══════════════════════════════════════════════
   test:
-    name: 🧪 Тесты и линтинг
+    name: Test and Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,27 +21,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: |
-            server/package-lock.json
-            client/package-lock.json
 
-      - name: Установка серверных зависимостей
-        run: cd server && npm ci
+      - name: Install server deps
+        run: cd server && npm install
 
-      - name: Установка клиентских зависимостей
-        run: cd client && npm ci
-
-      - name: Сборка клиента
-        run: cd client && npm run build
+      - name: Install client deps and build
+        run: |
+          cd client
+          npm install
+          npm run build
         env:
-          CI: false  # Не падать на warnings
+          CI: false
 
-  # ═══════════════════════════════════════════════
-  # ─── ДЕПЛОЙ НА VDS ────────────────────────────
-  # ═══════════════════════════════════════════════
   deploy:
-    name: 🚀 Деплой на VDS
+    name: Deploy to VDS
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -57,79 +47,66 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Сборка клиента
+      - name: Build client
         run: |
           cd client
-          npm ci
+          npm install
           npm run build
         env:
           CI: false
 
-      - name: 📦 Подготовка артефактов
+      - name: Prepare artifacts
         run: |
-          # Собираем только то, что нужно для продакшена
           mkdir -p deploy/server
           mkdir -p deploy/client/build
 
-          # Серверные файлы
           cp server/server.js deploy/server/
           cp server/package.json deploy/server/
-          cp server/package-lock.json deploy/server/ 2>/dev/null || true
 
-          # Собранный клиент
           cp -r client/build/* deploy/client/build/
 
-          # Конфиги
-          cp nginx.conf deploy/
-          cp Dockerfile deploy/ 2>/dev/null || true
-          cp docker-compose.yml deploy/ 2>/dev/null || true
+          cp nginx.conf deploy/ 2>/dev/null || true
 
-      - name: 🔐 Настройка SSH
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: 🔄 Синхронизация файлов на сервер
+      - name: Sync files to server
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || 22 }}" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT }}" \
             deploy/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/
 
-      - name: ⚙️ Установка зависимостей и перезапуск
+      - name: Install deps and restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
             set -e
 
             APP_DIR="${{ env.APP_DIR }}"
             cd "$APP_DIR"
 
-            echo "══════════════════════════════════════"
-            echo "  📦 Установка серверных зависимостей"
-            echo "══════════════════════════════════════"
+            echo "Installing server dependencies..."
             cd server
-            npm ci --production
+            npm install --production
             cd ..
 
-            echo "══════════════════════════════════════"
-            echo "  📝 Создание .env файла"
-            echo "══════════════════════════════════════"
-            cat > .env <<'ENVEOF'
+            echo "Creating .env file..."
+            cat > .env <<EOF
             NODE_ENV=production
             PORT=${{ secrets.APP_PORT }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
-            ENVEOF
+            EOF
 
-            echo "══════════════════════════════════════"
-            echo "  🔄 Обновление systemd сервиса"
-            echo "══════════════════════════════════════"
+            echo "Updating systemd service..."
             sudo tee /etc/systemd/system/pulse-messenger.service > /dev/null <<EOF
             [Unit]
             Description=Pulse Messenger
@@ -154,35 +131,28 @@ jobs:
             sudo systemctl enable pulse-messenger
             sudo systemctl restart pulse-messenger
 
-            echo "══════════════════════════════════════"
-            echo "  ✅ Деплой завершён!"
-            echo "══════════════════════════════════════"
+            echo "Deploy complete!"
             sleep 2
             sudo systemctl status pulse-messenger --no-pager || true
 
-      - name: 🏥 Проверка здоровья
+      - name: Health check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
-            echo "Ожидание запуска сервера..."
             sleep 3
-            
-            # Проверяем что сервер отвечает
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${{ secrets.APP_PORT || 3000 }}/ || echo "000")
-            
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${{ secrets.APP_PORT }}/ || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Сервер работает! (HTTP $HTTP_CODE)"
+              echo "Server is running! (HTTP $HTTP_CODE)"
             else
-              echo "❌ Сервер не отвечает (HTTP $HTTP_CODE)"
-              echo "Логи:"
+              echo "Server not responding (HTTP $HTTP_CODE)"
               sudo journalctl -u pulse-messenger -n 30 --no-pager
               exit 1
             fi
 
-      - name: 🧹 Очистка SSH ключей
+      - name: Cleanup SSH
         if: always()
         run: rm -f ~/.ssh/deploy_key
