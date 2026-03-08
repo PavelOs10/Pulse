@@ -1,0 +1,9 @@
+node_modules/
+client/build/
+server/uploads/
+server/pulse.db
+server/pulse.db-wal
+server/pulse.db-shm
+.env
+*.tar.gz
+.DS_Store

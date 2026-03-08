@@ -1,0 +1,68 @@
+name: 🐳 Deploy via Docker
+
+on:
+  workflow_dispatch:  # Только ручной запуск
+    inputs:
+      force_rebuild:
+        description: 'Пересобрать Docker образ с нуля'
+        required: false
+        default: 'false'
+
+env:
+  APP_DIR: /home/${{ secrets.SSH_USER }}/pulse-messenger
+
+jobs:
+  deploy-docker:
+    name: 🐳 Docker Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔐 Настройка SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 📤 Отправка файлов
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT || 22 }}" \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            ./ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.APP_DIR }}/
+
+      - name: 🐳 Docker build & restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd ${{ env.APP_DIR }}
+
+            # Создаём .env для docker-compose
+            cat > .env <<'EOF'
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            PORT=${{ secrets.APP_PORT }}
+            EOF
+
+            # Build и запуск
+            if [ "${{ github.event.inputs.force_rebuild }}" = "true" ]; then
+              docker-compose build --no-cache
+            else
+              docker-compose build
+            fi
+
+            docker-compose up -d
+
+            echo "✅ Docker контейнер запущен"
+            docker-compose ps
+
+      - name: 🧹 Очистка
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

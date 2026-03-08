@@ -1,0 +1,160 @@
+name: 🔧 Первоначальная настройка сервера
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Ваш домен (например: pulse.example.com)'
+        required: true
+      setup_ssl:
+        description: 'Настроить SSL (Let''s Encrypt)?'
+        required: false
+        default: 'true'
+      ssl_email:
+        description: 'Email для SSL сертификата'
+        required: false
+
+jobs:
+  setup:
+    name: 🔧 Настройка VDS
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔧 Установка зависимостей и настройка
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            set -e
+
+            echo "═══════════════════════════════════════"
+            echo "  🔧 Настройка сервера для Pulse"
+            echo "═══════════════════════════════════════"
+
+            # ── Обновление системы ──
+            sudo apt update && sudo apt upgrade -y
+
+            # ── Node.js 20 ──
+            if ! command -v node &> /dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 20 ]; then
+              echo "📦 Установка Node.js 20..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+              sudo apt install -y nodejs
+            else
+              echo "✅ Node.js $(node -v) уже установлен"
+            fi
+
+            # ── Build tools ──
+            sudo apt install -y build-essential python3
+
+            # ── Nginx ──
+            sudo apt install -y nginx
+            sudo systemctl enable nginx
+
+            # ── Certbot ──
+            sudo apt install -y certbot python3-certbot-nginx
+
+            # ── Firewall ──
+            sudo ufw allow 22/tcp
+            sudo ufw allow 80/tcp
+            sudo ufw allow 443/tcp
+            echo "y" | sudo ufw enable || true
+
+            # ── Создание директории приложения ──
+            mkdir -p /home/${{ secrets.SSH_USER }}/pulse-messenger/server/uploads/{avatars,voice,video,images,files,circles}
+
+            echo "✅ Базовая настройка завершена"
+
+      - name: 🌐 Настройка Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            DOMAIN="${{ github.event.inputs.domain }}"
+            APP_PORT="${{ secrets.APP_PORT || 3000 }}"
+
+            echo "🌐 Настройка Nginx для домена: $DOMAIN"
+
+            sudo tee /etc/nginx/sites-available/pulse-messenger > /dev/null <<NGINX
+            server {
+                listen 80;
+                server_name $DOMAIN;
+
+                client_max_body_size 100M;
+
+                location / {
+                    proxy_pass http://127.0.0.1:$APP_PORT;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection "upgrade";
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    proxy_read_timeout 86400;
+                }
+            }
+            NGINX
+
+            sudo ln -sf /etc/nginx/sites-available/pulse-messenger /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "✅ Nginx настроен"
+
+      - name: 🔒 Настройка SSL
+        if: ${{ github.event.inputs.setup_ssl == 'true' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            DOMAIN="${{ github.event.inputs.domain }}"
+            EMAIL="${{ github.event.inputs.ssl_email }}"
+
+            if [ -z "$EMAIL" ]; then
+              EMAIL="admin@$DOMAIN"
+            fi
+
+            echo "🔒 Получение SSL сертификата для $DOMAIN..."
+            sudo certbot --nginx \
+              -d "$DOMAIN" \
+              --non-interactive \
+              --agree-tos \
+              --email "$EMAIL" \
+              --redirect
+
+            # Автообновление сертификата
+            sudo systemctl enable certbot.timer
+            sudo systemctl start certbot.timer
+
+            echo "✅ SSL настроен и автообновление включено"
+
+      - name: 📋 Итоги
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            echo ""
+            echo "╔═══════════════════════════════════════════════╗"
+            echo "║  ✅ Сервер готов к деплою!                    ║"
+            echo "║                                               ║"
+            echo "║  Node.js: $(node -v)                          "
+            echo "║  Nginx:   $(nginx -v 2>&1)                    "
+            echo "║                                               ║"
+            echo "║  Теперь запустите workflow 'Deploy'            ║"
+            echo "║  или сделайте push в main                     ║"
+            echo "╚═══════════════════════════════════════════════╝"
