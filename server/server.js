@@ -293,6 +293,43 @@ app.post('/api/chats', authenticate, (req, res) => {
   res.json({ ...chat, members });
 });
 
+// ─── Get Single Chat ─────────────────────────────────────────────
+app.get('/api/chats/:chatId', authenticate, (req, res) => {
+  const { chatId } = req.params;
+  const member = db.prepare('SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?').get(chatId, req.userId);
+  if (!member) return res.status(403).json({ error: 'Нет доступа' });
+
+  const chat = db.prepare(`
+    SELECT c.*, 
+      (SELECT content FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+      (SELECT type FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_type,
+      (SELECT created_at FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_at,
+      (SELECT sender_id FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_sender,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id 
+        AND m.sender_id != ? 
+        AND NOT EXISTS (SELECT 1 FROM message_reads mr WHERE mr.message_id = m.id AND mr.user_id = ?)) as unread_count
+    FROM chats c WHERE c.id = ?
+  `).get(req.userId, req.userId, chatId);
+
+  if (!chat) return res.status(404).json({ error: 'Чат не найден' });
+
+  if (chat.type === 'direct') {
+    const other = db.prepare(`
+      SELECT u.id, u.username, u.display_name, u.avatar, u.status
+      FROM users u JOIN chat_members cm ON cm.user_id = u.id
+      WHERE cm.chat_id = ? AND u.id != ?
+    `).get(chat.id, req.userId);
+    return res.json({ ...chat, other_user: other });
+  }
+
+  const members = db.prepare(`
+    SELECT u.id, u.username, u.display_name, u.avatar, u.status
+    FROM users u JOIN chat_members cm ON cm.user_id = u.id
+    WHERE cm.chat_id = ?
+  `).all(chat.id);
+  res.json({ ...chat, members });
+});
+
 // ─── Messages Routes ──────────────────────────────────────────────
 app.get('/api/chats/:chatId/messages', authenticate, (req, res) => {
   const { chatId } = req.params;

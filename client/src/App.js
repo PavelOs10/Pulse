@@ -314,13 +314,25 @@ function VoiceRecorder({ onSend, onCancel }) {
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
   const timer = useRef(null);
+  const durationRef = useRef(0);
 
   useEffect(() => {
     let stream;
+    let cancelled = false;
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder.current = new MediaRecorder(stream);
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+
+        // Detect supported mime type
+        const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+        let mimeType = '';
+        for (const mt of mimeTypes) {
+          if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+        }
+
+        const options = mimeType ? { mimeType } : {};
+        mediaRecorder.current = new MediaRecorder(stream, options);
         chunks.current = [];
         
         mediaRecorder.current.ondataavailable = (e) => {
@@ -331,18 +343,23 @@ function VoiceRecorder({ onSend, onCancel }) {
           stream.getTracks().forEach(t => t.stop());
         };
         
-        mediaRecorder.current.start();
-        timer.current = setInterval(() => setDuration(d => d + 1), 1000);
+        mediaRecorder.current.start(100);
+        timer.current = setInterval(() => {
+          durationRef.current += 1;
+          setDuration(d => d + 1);
+        }, 1000);
       } catch {
-        onCancel();
+        if (!cancelled) onCancel();
       }
     })();
 
     return () => {
+      cancelled = true;
       clearInterval(timer.current);
       if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
         mediaRecorder.current.stop();
       }
+      if (stream) stream.getTracks().forEach(t => t.stop());
     };
   }, [onCancel]);
 
@@ -350,9 +367,11 @@ function VoiceRecorder({ onSend, onCancel }) {
     clearInterval(timer.current);
     setIsRecording(false);
     mediaRecorder.current.onstop = () => {
-      mediaRecorder.current.stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks.current, { type: 'audio/webm' });
-      onSend(blob, duration);
+      mediaRecorder.current.stream?.getTracks().forEach(t => t.stop());
+      const mimeType = mediaRecorder.current.mimeType || 'audio/webm';
+      const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+      const blob = new Blob(chunks.current, { type: mimeType });
+      onSend(blob, durationRef.current);
     };
     mediaRecorder.current.stop();
   };
@@ -404,24 +423,57 @@ function CircleRecorder({ onSend, onCancel }) {
   const [duration, setDuration] = useState(0);
   const [stream, setStream] = useState(null);
   const timer = useRef(null);
+  const durationRef = useRef(0);
+  const sentRef = useRef(false);
   const MAX_DURATION = 60;
 
+  const handleSendInternal = useCallback(() => {
+    if (sentRef.current) return;
+    sentRef.current = true;
+    clearInterval(timer.current);
+    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
+      mediaRecorder.current.onstop = () => {
+        if (mediaRecorder.current.stream) mediaRecorder.current.stream.getTracks().forEach(t => t.stop());
+        const mimeType = mediaRecorder.current.mimeType || 'video/webm';
+        const blob = new Blob(chunks.current, { type: mimeType });
+        onSend(blob, durationRef.current);
+      };
+      mediaRecorder.current.stop();
+    }
+  }, [onSend]);
+
   useEffect(() => {
+    let cancelled = false;
+    let localStream = null;
+
     (async () => {
       try {
+        // Detect supported mime type
+        const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+        let mimeType = '';
+        for (const mt of mimeTypes) {
+          if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+        }
+
         const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 400, height: 400 }, audio: true });
+        if (cancelled) { s.getTracks().forEach(t => t.stop()); return; }
+        localStream = s;
         setStream(s);
         if (videoRef.current) videoRef.current.srcObject = s;
         
-        mediaRecorder.current = new MediaRecorder(s, { mimeType: 'video/webm' });
+        const options = mimeType ? { mimeType } : {};
+        const recorder = new MediaRecorder(s, options);
+        mediaRecorder.current = recorder;
+        recorder.stream = s;
         chunks.current = [];
         
-        mediaRecorder.current.ondataavailable = (e) => {
+        recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunks.current.push(e.data);
         };
         
-        mediaRecorder.current.start();
+        recorder.start(100); // collect data every 100ms for smoother stop
         timer.current = setInterval(() => {
+          durationRef.current += 1;
           setDuration(d => {
             if (d >= MAX_DURATION - 1) {
               handleSendInternal();
@@ -431,27 +483,16 @@ function CircleRecorder({ onSend, onCancel }) {
           });
         }, 1000);
       } catch {
-        onCancel();
+        if (!cancelled) onCancel();
       }
     })();
 
     return () => {
+      cancelled = true;
       clearInterval(timer.current);
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
     };
-  }, []);
-
-  const handleSendInternal = () => {
-    clearInterval(timer.current);
-    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
-      mediaRecorder.current.onstop = () => {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(chunks.current, { type: 'video/webm' });
-        onSend(blob, duration);
-      };
-      mediaRecorder.current.stop();
-    }
-  };
+  }, [onCancel, handleSendInternal]);
 
   const handleCancel = () => {
     clearInterval(timer.current);
@@ -1312,6 +1353,17 @@ export default function App() {
       switch (msg.type) {
         case 'new_message':
           setChats(prev => {
+            const chatExists = prev.some(c => c.id === msg.chatId);
+            if (!chatExists) {
+              // Chat not in list — fetch it from server and add
+              api(`/api/chats/${msg.chatId}`).then(newChat => {
+                setChats(p => {
+                  if (p.some(c => c.id === newChat.id)) return p;
+                  return [{ ...newChat, unread_count: 1 }, ...p];
+                });
+              }).catch(console.error);
+              return prev;
+            }
             const updated = prev.map(c => {
               if (c.id === msg.chatId) {
                 return {
@@ -1335,6 +1387,12 @@ export default function App() {
             }
             return c;
           }));
+          setActiveChat(prev => {
+            if (prev && prev.type === 'direct' && prev.other_user?.id === msg.userId) {
+              return { ...prev, other_user: { ...prev.other_user, status: msg.status } };
+            }
+            return prev;
+          });
           break;
 
         case 'call_incoming':
