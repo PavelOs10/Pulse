@@ -34,22 +34,36 @@ const globalStyles = `
     --shadow: 0 4px 24px rgba(0,0,0,0.4);
     --font: 'Manrope', -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  html { height: 100%; overflow: hidden; }
 
   body {
     font-family: var(--font);
     background: var(--bg-primary);
     color: var(--text-primary);
+    height: 100dvh;
     height: 100vh;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
   }
 
-  #root { height: 100vh; }
+  #root { height: 100dvh; height: 100vh; }
 
   input, textarea, button { font-family: var(--font); }
+  
+  /* Prevent iOS zoom on input focus */
+  input, textarea, select { font-size: 16px !important; }
+  
+  /* Touch improvements */
+  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
-  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -263,7 +277,9 @@ function EmojiPicker({ onSelect, onClose }) {
 
   return (
     <div ref={ref} style={{
-      position: 'absolute', bottom: 60, left: 8, width: 320, maxHeight: 360,
+      position: 'absolute', bottom: 60, left: 0, right: 0,
+      maxWidth: 320, width: 'calc(100vw - 24px)',
+      maxHeight: 360,
       background: 'var(--bg-secondary)', border: '1px solid var(--border)',
       borderRadius: 16, boxShadow: 'var(--shadow)', zIndex: 100,
       animation: 'slideUp 0.2s ease', overflow: 'hidden'
@@ -310,46 +326,49 @@ function EmojiPicker({ onSelect, onClose }) {
 // ══════════════════════════════════════════════════════════════════
 function VoiceRecorder({ onSend, onCancel }) {
   const [duration, setDuration] = useState(0);
-  const [isRecording, setIsRecording] = useState(true);
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
   const timer = useRef(null);
   const durationRef = useRef(0);
+  const streamRef = useRef(null);
+  const onCancelRef = useRef(onCancel);
+  const onSendRef = useRef(onSend);
+  onCancelRef.current = onCancel;
+  onSendRef.current = onSend;
 
   useEffect(() => {
-    let stream;
     let cancelled = false;
+
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
 
         // Detect supported mime type
         const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
         let mimeType = '';
         for (const mt of mimeTypes) {
-          if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
         }
 
         const options = mimeType ? { mimeType } : {};
-        mediaRecorder.current = new MediaRecorder(stream, options);
+        const recorder = new MediaRecorder(stream, options);
+        mediaRecorder.current = recorder;
         chunks.current = [];
         
-        mediaRecorder.current.ondataavailable = (e) => {
+        recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunks.current.push(e.data);
         };
         
-        mediaRecorder.current.onstop = () => {
-          stream.getTracks().forEach(t => t.stop());
-        };
-        
-        mediaRecorder.current.start(100);
+        recorder.start(200);
         timer.current = setInterval(() => {
           durationRef.current += 1;
           setDuration(d => d + 1);
         }, 1000);
-      } catch {
-        if (!cancelled) onCancel();
+      } catch (err) {
+        console.error('Voice recorder error:', err);
+        if (!cancelled) onCancelRef.current();
       }
     })();
 
@@ -357,57 +376,68 @@ function VoiceRecorder({ onSend, onCancel }) {
       cancelled = true;
       clearInterval(timer.current);
       if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
-        mediaRecorder.current.stop();
+        try { mediaRecorder.current.stop(); } catch(e) {}
       }
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
     };
-  }, [onCancel]);
+  }, []); // no deps — mount once
 
   const handleSend = () => {
     clearInterval(timer.current);
-    setIsRecording(false);
+    if (!mediaRecorder.current || mediaRecorder.current.state !== 'recording') return;
+    
     mediaRecorder.current.onstop = () => {
-      mediaRecorder.current.stream?.getTracks().forEach(t => t.stop());
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       const mimeType = mediaRecorder.current.mimeType || 'audio/webm';
-      const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
       const blob = new Blob(chunks.current, { type: mimeType });
-      onSend(blob, durationRef.current);
+      onSendRef.current(blob, durationRef.current);
     };
     mediaRecorder.current.stop();
   };
 
+  const handleCancel = () => {
+    clearInterval(timer.current);
+    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
+      try { mediaRecorder.current.stop(); } catch(e) {}
+    }
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    onCancelRef.current();
+  };
+
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, flex: 1,
+      display: 'flex', alignItems: 'center', gap: 8, flex: 1,
       animation: 'fadeIn 0.2s ease'
     }}>
-      <button onClick={onCancel} style={{
+      <button onClick={handleCancel} style={{
         width: 36, height: 36, borderRadius: '50%', border: 'none',
         background: 'rgba(255,68,102,0.15)', color: 'var(--danger)',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18
+        fontSize: 18, flexShrink: 0
       }}>✕</button>
       
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, flex: 1,
-        padding: '8px 16px', background: 'rgba(255,68,102,0.08)',
+        display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0,
+        padding: '8px 12px', background: 'rgba(255,68,102,0.08)',
         borderRadius: 20
       }}>
         <div style={{
           width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)',
-          animation: 'pulse 1.5s infinite'
+          animation: 'pulse 1.5s infinite', flexShrink: 0
         }} />
         <span style={{ color: 'var(--danger)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
           {formatDuration(duration)}
         </span>
-        <span style={{ color: 'var(--text-secondary)', fontSize: 13, marginLeft: 4 }}>Запись...</span>
+        <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Запись...</span>
       </div>
       
       <button onClick={handleSend} style={{
         width: 40, height: 40, borderRadius: '50%', border: 'none',
         background: 'var(--accent)', color: 'var(--bg-primary)',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18
+        fontSize: 18, flexShrink: 0
       }}>▶</button>
     </div>
   );
@@ -421,30 +451,18 @@ function CircleRecorder({ onSend, onCancel }) {
   const mediaRecorder = useRef(null);
   const chunks = useRef([]);
   const [duration, setDuration] = useState(0);
-  const [stream, setStream] = useState(null);
   const timer = useRef(null);
   const durationRef = useRef(0);
   const sentRef = useRef(false);
+  const streamRef = useRef(null);
+  const onSendRef = useRef(onSend);
+  const onCancelRef = useRef(onCancel);
+  onSendRef.current = onSend;
+  onCancelRef.current = onCancel;
   const MAX_DURATION = 60;
-
-  const handleSendInternal = useCallback(() => {
-    if (sentRef.current) return;
-    sentRef.current = true;
-    clearInterval(timer.current);
-    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
-      mediaRecorder.current.onstop = () => {
-        if (mediaRecorder.current.stream) mediaRecorder.current.stream.getTracks().forEach(t => t.stop());
-        const mimeType = mediaRecorder.current.mimeType || 'video/webm';
-        const blob = new Blob(chunks.current, { type: mimeType });
-        onSend(blob, durationRef.current);
-      };
-      mediaRecorder.current.stop();
-    }
-  }, [onSend]);
 
   useEffect(() => {
     let cancelled = false;
-    let localStream = null;
 
     (async () => {
       try {
@@ -452,68 +470,89 @@ function CircleRecorder({ onSend, onCancel }) {
         const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
         let mimeType = '';
         for (const mt of mimeTypes) {
-          if (MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
+          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mt)) { mimeType = mt; break; }
         }
 
-        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 400, height: 400 }, audio: true });
+        const s = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: { ideal: 400 }, height: { ideal: 400 } }, 
+          audio: true 
+        });
         if (cancelled) { s.getTracks().forEach(t => t.stop()); return; }
-        localStream = s;
-        setStream(s);
+        streamRef.current = s;
         if (videoRef.current) videoRef.current.srcObject = s;
         
         const options = mimeType ? { mimeType } : {};
         const recorder = new MediaRecorder(s, options);
         mediaRecorder.current = recorder;
-        recorder.stream = s;
         chunks.current = [];
         
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunks.current.push(e.data);
         };
         
-        recorder.start(100); // collect data every 100ms for smoother stop
+        recorder.start(200);
         timer.current = setInterval(() => {
           durationRef.current += 1;
           setDuration(d => {
             if (d >= MAX_DURATION - 1) {
-              handleSendInternal();
+              doSend();
               return d;
             }
             return d + 1;
           });
         }, 1000);
-      } catch {
-        if (!cancelled) onCancel();
+      } catch (err) {
+        console.error('Circle recorder error:', err);
+        if (!cancelled) onCancelRef.current();
       }
     })();
 
     return () => {
       cancelled = true;
       clearInterval(timer.current);
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
+        try { mediaRecorder.current.stop(); } catch(e) {}
+      }
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
-  }, [onCancel, handleSendInternal]);
+  }, []); // no deps
+
+  const doSend = () => {
+    if (sentRef.current) return;
+    sentRef.current = true;
+    clearInterval(timer.current);
+    if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
+      mediaRecorder.current.onstop = () => {
+        if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+        const mimeType = mediaRecorder.current.mimeType || 'video/webm';
+        const blob = new Blob(chunks.current, { type: mimeType });
+        onSendRef.current(blob, durationRef.current);
+      };
+      mediaRecorder.current.stop();
+    }
+  };
 
   const handleCancel = () => {
     clearInterval(timer.current);
     if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
-      mediaRecorder.current.stop();
+      try { mediaRecorder.current.stop(); } catch(e) {}
     }
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    onCancel();
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    onCancelRef.current();
   };
 
   const progress = (duration / MAX_DURATION) * 100;
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, animation: 'fadeIn 0.3s ease'
+      zIndex: 1000, animation: 'fadeIn 0.3s ease',
+      padding: '20px'
     }}>
-      <div style={{ position: 'relative', width: 280, height: 280 }}>
+      <div style={{ position: 'relative', width: 'min(280px, 70vw)', height: 'min(280px, 70vw)' }}>
         {/* Progress ring */}
-        <svg width="280" height="280" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)' }}>
+        <svg viewBox="0 0 280 280" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
           <circle cx="140" cy="140" r="136" fill="none" stroke="var(--border)" strokeWidth="4" />
           <circle cx="140" cy="140" r="136" fill="none" stroke="var(--accent)" strokeWidth="4"
             strokeDasharray={`${2 * Math.PI * 136}`}
@@ -523,8 +562,8 @@ function CircleRecorder({ onSend, onCancel }) {
         
         <video ref={videoRef} autoPlay muted playsInline
           style={{
-            position: 'absolute', top: 8, left: 8,
-            width: 264, height: 264, borderRadius: '50%',
+            position: 'absolute', top: '2.8%', left: '2.8%',
+            width: '94.4%', height: '94.4%', borderRadius: '50%',
             objectFit: 'cover', background: '#000'
           }} />
       </div>
@@ -539,7 +578,7 @@ function CircleRecorder({ onSend, onCancel }) {
           background: 'rgba(255,68,102,0.2)', color: 'var(--danger)',
           cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>✕</button>
-        <button onClick={handleSendInternal} style={{
+        <button onClick={doSend} style={{
           width: 56, height: 56, borderRadius: '50%', border: 'none',
           background: 'var(--accent)', color: 'var(--bg-primary)',
           cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -793,11 +832,11 @@ function MessageBubble({ message, isOwn, serverUrl }) {
       case 'circle':
         return (
           <div style={{ display: 'flex', justifyContent: isOwn ? 'flex-end' : 'flex-start' }}>
-            <div style={{ position: 'relative', width: 200, height: 200 }}>
+            <div style={{ position: 'relative', width: 'min(200px, 50vw)', height: 'min(200px, 50vw)' }}>
               <video
                 src={`${serverUrl}${message.file_url}`}
                 style={{
-                  width: 200, height: 200, borderRadius: '50%',
+                  width: '100%', height: '100%', borderRadius: '50%',
                   objectFit: 'cover', border: '3px solid var(--accent)',
                   cursor: 'pointer'
                 }}
@@ -821,7 +860,7 @@ function MessageBubble({ message, isOwn, serverUrl }) {
       case 'image':
         return (
           <img src={`${serverUrl}${message.file_url}`} alt=""
-            style={{ maxWidth: 280, maxHeight: 300, borderRadius: 12, display: 'block' }}
+            style={{ maxWidth: 'min(280px, 70vw)', maxHeight: 300, borderRadius: 12, display: 'block' }}
             loading="lazy" />
         );
 
@@ -1067,14 +1106,16 @@ function ChatList({ chats, activeChat, onSelectChat, onNewChat, user }) {
 
       {/* User Info */}
       <div style={{
-        padding: '12px 16px', borderTop: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', gap: 10
+        padding: '12px 16px', paddingBottom: 'max(12px, var(--safe-bottom))',
+        borderTop: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0
       }}>
         <div style={{
           width: 36, height: 36, borderRadius: '50%',
           background: 'var(--accent)', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 700, color: 'var(--bg-primary)'
+          fontSize: 14, fontWeight: 700, color: 'var(--bg-primary)',
+          flexShrink: 0
         }}>
           {user.display_name?.[0]?.toUpperCase()}
         </div>
@@ -1099,13 +1140,28 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
   const [recording, setRecording] = useState(false);
   const [recordingCircle, setRecordingCircle] = useState(false);
   const [typing, setTyping] = useState({});
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const messagesEnd = useRef();
   const fileInput = useRef();
   const typingTimeout = useRef();
+  const attachRef = useRef();
 
   const chatName = chat.type === 'direct' ? chat.other_user?.display_name : chat.name;
   const chatStatus = chat.type === 'direct' ? chat.other_user?.status : null;
   const serverUrl = API_BASE;
+
+  // Close attach menu on outside click
+  useEffect(() => {
+    const handleClick = (e) => { 
+      if (attachRef.current && !attachRef.current.contains(e.target)) setShowAttachMenu(false); 
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
+  }, []);
 
   // Load messages
   useEffect(() => {
@@ -1147,7 +1203,6 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
   const handleSend = () => {
     if (!text.trim()) return;
-    // Check if it's only emoji (1-3 emoji, no other text)
     const emojiRegex = /^[\p{Emoji}\u200d\ufe0f]{1,8}$/u;
     const msgType = emojiRegex.test(text.trim()) ? 'emoji' : 'text';
     sendMessage(text.trim(), msgType);
@@ -1174,57 +1229,59 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
       fileName: data.filename,
       fileSize: data.size
     });
+    setShowAttachMenu(false);
   };
 
-  const handleVoiceSend = async (blob, duration) => {
+  const handleVoiceSend = async (blob, dur) => {
     setRecording(false);
     const data = await uploadFile('voice', new File([blob], 'voice.webm'));
-    sendMessage('Голосовое сообщение', 'voice', { fileUrl: data.url, duration });
+    sendMessage('Голосовое сообщение', 'voice', { fileUrl: data.url, duration: dur });
   };
 
-  const handleCircleSend = async (blob, duration) => {
+  const handleCircleSend = async (blob, dur) => {
     setRecordingCircle(false);
     const data = await uploadFile('circles', new File([blob], 'circle.webm'));
-    sendMessage('Кружочек', 'circle', { fileUrl: data.url, duration });
+    sendMessage('Кружочек', 'circle', { fileUrl: data.url, duration: dur });
   };
 
   const typingUsers = Object.entries(typing).filter(([id, t]) => t && id !== user.id);
 
   return (
     <div style={{
-      height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)'
+      height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)',
+      maxHeight: '100dvh', maxHeight: '100vh'
     }}>
       {/* Header */}
       <div style={{
-        padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10,
         borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)',
-        flexShrink: 0
+        flexShrink: 0, minHeight: 56
       }}>
         <button onClick={onBack} style={{
-          display: 'none', width: 32, height: 32, borderRadius: 8,
+          width: 32, height: 32, borderRadius: 8,
           border: 'none', background: 'transparent', color: 'var(--text-secondary)',
-          cursor: 'pointer', fontSize: 18, alignItems: 'center', justifyContent: 'center',
-          ...(window.innerWidth <= 768 ? { display: 'flex' } : {})
+          cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0
         }}>←</button>
 
         <div style={{
-          width: 40, height: 40, borderRadius: '50%',
+          width: 36, height: 36, borderRadius: '50%',
           background: 'var(--accent-glow)', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
-          fontSize: 16, fontWeight: 700, color: 'var(--accent)',
-          border: '2px solid var(--border)'
+          fontSize: 14, fontWeight: 700, color: 'var(--accent)',
+          border: '2px solid var(--border)', flexShrink: 0
         }}>
           {chatName?.[0]?.toUpperCase() || '?'}
         </div>
 
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{chatName || 'Чат'}</div>
-          <div style={{ fontSize: 12, color: chatStatus === 'online' ? 'var(--accent)' : 'var(--text-muted)' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chatName || 'Чат'}</div>
+          <div style={{ fontSize: 11, color: chatStatus === 'online' ? 'var(--accent)' : 'var(--text-muted)' }}>
             {typingUsers.length > 0 ? 'печатает...' : chatStatus === 'online' ? 'в сети' : 'не в сети'}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
           <button onClick={() => onCall('audio')} style={headerBtnStyle} title="Аудиозвонок">📞</button>
           <button onClick={() => onCall('video')} style={headerBtnStyle} title="Видеозвонок">🎥</button>
         </div>
@@ -1232,8 +1289,9 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
       {/* Messages */}
       <div style={{
-        flex: 1, overflowY: 'auto', padding: '16px 0',
-        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,212,170,0.02) 0%, transparent 50%)'
+        flex: 1, overflowY: 'auto', padding: '12px 0',
+        backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(0,212,170,0.02) 0%, transparent 50%)',
+        WebkitOverflowScrolling: 'touch'
       }}>
         {messages.map(msg => (
           <MessageBubble key={msg.id} message={msg} isOwn={msg.sender_id === user.id} serverUrl={serverUrl} />
@@ -1248,20 +1306,49 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 
       {/* Input Area */}
       <div style={{
-        padding: '10px 12px', borderTop: '1px solid var(--border)',
+        padding: '8px 8px', paddingBottom: 'max(8px, var(--safe-bottom))',
+        borderTop: '1px solid var(--border)',
         background: 'var(--bg-secondary)', flexShrink: 0, position: 'relative'
       }}>
         {showEmoji && <EmojiPicker onSelect={e => setText(t => t + e)} onClose={() => setShowEmoji(false)} />}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Attach menu popup */}
+        {showAttachMenu && (
+          <div ref={attachRef} style={{
+            position: 'absolute', bottom: 56, left: 8,
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            borderRadius: 12, boxShadow: 'var(--shadow)', zIndex: 50,
+            padding: '4px 0', animation: 'slideUp 0.15s ease',
+            minWidth: 180
+          }}>
+            <button onClick={() => { fileInput.current?.click(); }} style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 14px', border: 'none', background: 'transparent',
+              color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', textAlign: 'left'
+            }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+            >📎 Файл / Фото</button>
+            <button onClick={() => { setRecordingCircle(true); setShowAttachMenu(false); }} style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              padding: '10px 14px', border: 'none', background: 'transparent',
+              color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', textAlign: 'left'
+            }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+            >⭕ Кружочек</button>
+          </div>
+        )}
+
+        <input ref={fileInput} type="file" hidden onChange={handleFile} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {recording ? (
             <VoiceRecorder onSend={handleVoiceSend} onCancel={() => setRecording(false)} />
           ) : (
             <>
               <button onClick={() => setShowEmoji(!showEmoji)} style={inputBtnStyle} title="Эмодзи">😊</button>
-              <button onClick={() => fileInput.current?.click()} style={inputBtnStyle} title="Файл">📎</button>
-              <button onClick={() => setRecordingCircle(true)} style={inputBtnStyle} title="Кружочек">⭕</button>
-              <input ref={fileInput} type="file" hidden onChange={handleFile} />
+              <button onClick={() => setShowAttachMenu(!showAttachMenu)} style={inputBtnStyle} title="Прикрепить">+</button>
 
               <input
                 placeholder="Сообщение..."
@@ -1269,7 +1356,7 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
                 onChange={e => { setText(e.target.value); handleTyping(); }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 style={{
-                  flex: 1, padding: '11px 16px', borderRadius: 20,
+                  flex: 1, padding: '10px 14px', borderRadius: 20, minWidth: 0,
                   border: '1px solid var(--border)', background: 'var(--bg-tertiary)',
                   color: 'var(--text-primary)', fontSize: 14, outline: 'none'
                 }}
@@ -1280,14 +1367,14 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
                   width: 40, height: 40, borderRadius: '50%', border: 'none',
                   background: 'var(--accent)', color: 'var(--bg-primary)',
                   cursor: 'pointer', fontSize: 16, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center'
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0
                 }}>▶</button>
               ) : (
                 <button onClick={() => setRecording(true)} style={{
                   width: 40, height: 40, borderRadius: '50%', border: 'none',
                   background: 'var(--accent-glow)', color: 'var(--accent)',
                   cursor: 'pointer', fontSize: 18, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center'
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0
                 }}>🎤</button>
               )}
             </>
@@ -1299,13 +1386,14 @@ function ChatView({ chat, user, ws, onBack, onCall }) {
 }
 
 const headerBtnStyle = {
-  width: 36, height: 36, borderRadius: 10, border: 'none',
-  background: 'var(--bg-tertiary)', cursor: 'pointer', fontSize: 16,
-  display: 'flex', alignItems: 'center', justifyContent: 'center'
+  width: 34, height: 34, borderRadius: 10, border: 'none',
+  background: 'var(--bg-tertiary)', cursor: 'pointer', fontSize: 15,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexShrink: 0
 };
 
 const inputBtnStyle = {
-  width: 36, height: 36, borderRadius: '50%', border: 'none',
+  width: 34, height: 34, borderRadius: '50%', border: 'none',
   background: 'transparent', cursor: 'pointer', fontSize: 18,
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   flexShrink: 0
@@ -1522,8 +1610,6 @@ export default function App() {
     </>
   );
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-
   return (
     <>
       <style>{globalStyles}</style>
@@ -1550,28 +1636,36 @@ export default function App() {
       )}
 
       <div style={{
-        height: '100vh', display: 'flex',
-        maxWidth: 1200, margin: '0 auto'
+        height: '100dvh', height: '100vh', display: 'flex',
+        maxWidth: 1200, margin: '0 auto', overflow: 'hidden'
       }}>
         {/* Sidebar */}
         <div style={{
-          width: isMobile ? '100%' : 360, flexShrink: 0,
-          display: isMobile && showMobile !== 'list' ? 'none' : 'block'
-        }}>
-          <ChatList
-            chats={chats}
-            activeChat={activeChat}
-            onSelectChat={handleSelectChat}
-            onNewChat={() => {}}
-            user={user}
-          />
+          width: showMobile === 'chat' ? 0 : '100%',
+          maxWidth: showMobile === 'chat' ? 0 : 360,
+          flexShrink: 0,
+          overflow: 'hidden',
+          transition: 'none'
+        }}
+          className="sidebar-container"
+        >
+          <div style={{ width: showMobile === 'chat' ? 360 : '100%', minWidth: 280, height: '100%' }}>
+            <ChatList
+              chats={chats}
+              activeChat={activeChat}
+              onSelectChat={handleSelectChat}
+              onNewChat={() => {}}
+              user={user}
+            />
+          </div>
         </div>
 
         {/* Chat */}
         <div style={{
           flex: 1,
-          display: isMobile && showMobile !== 'chat' ? 'none' : 'flex',
-          flexDirection: 'column'
+          display: showMobile === 'list' && typeof window !== 'undefined' && window.innerWidth <= 768 ? 'none' : 'flex',
+          flexDirection: 'column',
+          minWidth: 0
         }}>
           {activeChat ? (
             <ChatView
